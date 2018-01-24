@@ -16,7 +16,7 @@
 import rospy
 import time
 from barc.msg import ECU
-from simulator.msg import Z_DynBkMdl
+from labs.msg import Z_DynBkMdl
 from numpy import sin, cos, tan, arctan, array, dot, pi
 from numpy import sign, argmin, sqrt, zeros, row_stack, ones, interp
 from system_models_simulator import bikeFE

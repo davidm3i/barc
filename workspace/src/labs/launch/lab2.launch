@@ -21,5 +21,5 @@
     <node pkg="labs" type="vehicle_simulator.py" name="simulator" />
 
     <!-- Record the experiment data -->
-    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/me131/ -a" />
+    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/david/Github/BARC/workspace/src/labs/src/lab2/records/ -a" />
 </launch>

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 
-bag = rosbag.Bag(os.path.expanduser("~/2017-09-17-15-35-47.bag"))
+bag = rosbag.Bag(os.path.expanduser("~/Github/BARC/workspace/src/labs/src/lab2/records/_2018-01-24-14-25-02.bag"))
 
 
 topics = bag.get_type_and_topic_info()[1].keys()
@@ -17,7 +17,7 @@ for i in range(0,len(bag.get_type_and_topic_info()[1].values())):
     dimEcu = bag.get_type_and_topic_info()[1].values()[i][1]
     print "Dim ECU mgs:", dimEcu
 
-  if bag.get_type_and_topic_info()[1].values()[i][0] == 'simulator/Z_DynBkMdl':
+  if bag.get_type_and_topic_info()[1].values()[i][0] == 'labs/Z_DynBkMdl':
     dimxy = bag.get_type_and_topic_info()[1].values()[i][1]
     print "Dim hedge_pos msg:", dimxy
 
