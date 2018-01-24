@@ -61,7 +61,7 @@ target/
 dump.rdb
 
 # made by jgonzal
-controller.py
+# controller.py
 
 Dator/db.sqlite3
 workspace/src/barc/rosbag/
