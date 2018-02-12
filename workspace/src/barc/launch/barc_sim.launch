@@ -7,6 +7,8 @@
     <param name="m" type="double" value="1.98" />
     <param name="I_z" type="double" value="0.24" />
 
+    <param name="run_id" type="string" value="Test" />  <!-- only the first 4 digits are read currently -->
+
     <!-- RECORD -->
     <node pkg="barc" type="barc_record.jl" name="barc_record" output="screen" />
 
