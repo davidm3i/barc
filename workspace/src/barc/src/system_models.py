@@ -47,7 +47,7 @@ def f_KinBkMdl(z, u, vhMdl, dt, est_mode):
     x_next      = x + dt*( v*cos(psi + bta) )
     y_next      = y + dt*( v*sin(psi + bta) )
     psi_next    = psi + dt*v/L_b*sin(bta)
-    v_next      = v + dt*(a - 0.63*sign(v)*v**2)
+    v_next      = v + dt*a  #(a - 0.63*sign(v)*v**2)
 
     return array([x_next, y_next, psi_next, v_next])
 

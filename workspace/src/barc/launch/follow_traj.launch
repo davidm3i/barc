@@ -27,10 +27,18 @@
         <param name="dt_v_enc" type="double" value="0.2" />
 
         <!-- ekf properties -->
+        <param name="q_std" type="double" value="0.1" />
+        <param name="r_std" type="double" value="0.1" />
+
+        <!-- measurement model type -->
+        <param name="est_mode" type="int" value="1" />
+
+        <!-- OLD ekf properties
         <param name="q_std" type="double" value="0.01" />
         <param name="psi_std" type="double" value="0.2" />
         <param name="v_std" type="double" value="0.5" />
         <param name="gps_std" type="double" value="0.025" />
+        -->
     </node>
 
     <!-- LOCALIZATION -->
@@ -46,8 +54,10 @@
     </node>
 
     <!-- MPC CONTROLLER -->
+    <!--
     <node pkg="barc" type="controller_MPC_traj.jl" name="MPC" output="screen">
     </node>
+    -->
 
 
 </launch>
