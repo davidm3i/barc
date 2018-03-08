@@ -16,10 +16,10 @@
     </node>
 
 	<!-- GPS -->
-	<node pkg="marvelmind_indoor_gps" type="indoor_gps.py" name="indoor_gps" output="screen">
-		<param name="port" value="/dev/ttyACM1" />
-		<param name="baud" value="115200" />
-	</node>
+	<node pkg="nmea_navsat_driver" type="nmea_serial_driver" name="gps">
+        <param name="port" value="/dev/ttyACM1" />
+        <param name="baud_rate" value="115200" />
+    </node>
 
     <!-- OBSERVER-->
     <node pkg="barc" type="state_estimation_KinBkMdl.py" name="state_estimation">
@@ -45,7 +45,8 @@
         <param name="port" value="/dev/ttyUSB0" />
     </node>
 
-<node pkg="barc" type="controller_MPC_traj.jl" name="MPC" output="screen">
+    <!-- MPC CONTROLLER -->
+    <node pkg="barc" type="controller_MPC_traj.jl" name="MPC" output="screen">
     </node>
 
 
