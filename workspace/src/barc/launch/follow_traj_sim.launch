@@ -1,0 +1,49 @@
+<launch>
+
+    <!-- EXPERIMENT NAME -->
+    <arg name="id" />
+
+    <!-- SYSTEM MODEL -->
+    <!-- vehicle parameters -->
+    <param name="L_a" type="double" value="0.125" />
+    <param name="L_b" type="double" value="0.125" />
+
+    <!-- control parameters -->
+    <param name="input_gain" type="double" value="0.3" />
+
+    <!-- SIMULATOR -->
+    <node pkg="barc" type="vehicle_simulator.py" name="simulator" output="screen"/>
+
+    <!-- OBSERVER-->
+    <node pkg="barc" type="state_estimation_KinBkMdl.py" name="state_estimation" output="screen">
+        <!-- v_x estimation sample time-->
+        <param name="dt_v_enc" type="double" value="0.2" />
+
+        <!-- ekf properties -->
+        <param name="q_std" type="double" value="0.1" />
+        <param name="r_std" type="double" value="0.1" />
+
+        <!-- measurement model type -->
+        <param name="est_mode" type="int" value="1" />
+
+        <!-- OLD ekf properties
+        <param name="q_std" type="double" value="0.01" />
+        <param name="psi_std" type="double" value="0.2" />
+        <param name="v_std" type="double" value="0.5" />
+        <param name="gps_std" type="double" value="0.025" />
+        -->
+    </node>
+
+    <!-- LOW LEVEL CONTROLLER -->
+    <node pkg="barc" type="controller_low_level.py" name="low_level_controller" output="screen"/>
+
+    <!-- MPC CONTROLLER -->
+    <node pkg="barc" type="controller_mpc_traj_KinBkMdl.jl" name="MPC" output="screen"/>
+
+    <!-- RECORD -->
+    <node pkg="barc" type="record_experiment.py" name="record_experiment" output="screen">
+        <param name="experiment_name" value="$(arg id)" />
+        <param name="camera_on" value="false" />
+    </node>
+
+</launch>

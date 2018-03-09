@@ -47,9 +47,11 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(
    FILES
-   pos_info.msg
+   Encoder.msg
    ECU.msg
-   Vel_est.msg
+   Ultrasound.msg
+   Z_KinBkMdl.msg
+   Z_KinBkMdl.msg
 )
 
 ## Generate services in the 'srv' folder
