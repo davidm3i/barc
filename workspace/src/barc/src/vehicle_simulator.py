@@ -15,7 +15,8 @@
 
 import rospy
 import time
-from barc.msg import ECU, Z_DynBkMdl
+from barc.msg import ECU, Encoder, Z_DynBkMdl
+from sensor_msgs.msg import Imu, NavSatFix
 from numpy import sin, cos, tan, arctan, array, dot, pi
 from numpy import sign, argmin, sqrt, zeros, row_stack, ones, interp
 from bike_model import bikeFE
@@ -42,6 +43,9 @@ def vehicle_simulator():
     # topic subscriptions / publications
     rospy.Subscriber('ecu', ECU, ecu_callback)
     state_pub   = rospy.Publisher('z_vhcl', Z_DynBkMdl, queue_size = 10)
+    imu_pub   = rospy.Publisher('imu/data', Imu, queue_size = 10)
+    enc_pub   = rospy.Publisher('encoder', Encoder, queue_size = 10)
+    gps_pub   = rospy.Publisher('fix', NavSatFix, queue_size = 10)
 
     # get external force model
     # a0    = rospy.get_param("air_drag_coeff")
@@ -70,11 +74,18 @@ def vehicle_simulator():
     while not rospy.is_shutdown():
         theta = interp(x, x_list, theta_list)/180*pi
         # (x, y, psi, v_x) = bikeFE(x, y, psi, v_x, acc, d_f, a0, m, Ff, theta, ts)
-        (x, y, psi, v_x) = f_KinBkMdl((x, y, psi, v_x), (acc, d_f), (0.125, 0.125), ts, 0)
+        # print x, y, psi, v_x
+        # print acc, d_f
+        (x, y, psi, v_x) = f_KinBkMdl((x, y, psi, v_x), (d_f, acc), (0.125, 0.125), ts, 0)
         v_y = 0
         r = 0
         # publish information
         state_pub.publish(Z_DynBkMdl(x, y, psi, v_x, v_y, r) )
+
+        imu_pub.publish()
+        enc_pub.publish()
+        gps_pub.publish()
+
         # wait
         rate.sleep()
 

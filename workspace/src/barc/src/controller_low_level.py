@@ -71,7 +71,7 @@ class low_level_control(object):
         self.motor_pwm = 90
         self.update_arduino()
     def update_arduino(self):
-        self.ecu_cmd.header.stamp = get_rostime()
+        # self.ecu_cmd.header.stamp = get_rostime()
         self.ecu_cmd.motor = self.motor_pwm
         self.ecu_cmd.servo = self.servo_pwm
         self.ecu_pub.publish(self.ecu_cmd)

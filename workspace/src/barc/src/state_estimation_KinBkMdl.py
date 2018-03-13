@@ -252,8 +252,8 @@ def state_estimation():
     z_EKF       = zeros(4)
 
     # estimation variables for EKF
-    P           = eye(4)                # initial dynamics coveriance matrix
-    Q           = (q_std**2)*eye(4)     # process noise coveriance matrix
+    P           = eye(4)                # initial dynamics covariance matrix
+    Q           = (q_std**2)*eye(4)     # process noise covariance matrix
     R           = array([[0.1,0.0,0.0,0.0],
                          [0.0,0.1,0.0,0.0],
                          [0.0,0.0,r_std,0.0],
@@ -263,6 +263,7 @@ def state_estimation():
 
         # publish state estimate
         (x, y, psi, v) = z_EKF
+        print x,y,psi,v
 
         # publish information
         state_pub.publish( Z_KinBkMdl(x, y, psi, v) )
