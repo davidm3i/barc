@@ -24,10 +24,10 @@ from barc.msg import ECU
 import rospy
 
 class low_level_control(object):
-    motor_pwm = 90
-    servo_pwm = 90
-    str_ang_max = 35
-    str_ang_min = -35
+    motor_pwm = 1500
+    servo_pwm = 1580
+    # str_ang_max = 35
+    # str_ang_min = -35
     ecu_pub = 0
     ecu_cmd = ECU()
     def pwm_converter_callback(self, msg):
@@ -42,12 +42,12 @@ class low_level_control(object):
         #     self.servo_pwm = 95.5 + 118.8*float(msg.servo)
         # elif msg.servo > 0.0:       # left curve
         #     self.servo_pwm = 90.8 + 78.9*float(msg.servo)
-        self.servo_pwm = 90.0 + 89.0*float(msg.servo)
+        self.servo_pwm = 1580.0 - 833.33*float(msg.servo)
 
         # compute motor command
         FxR = float(msg.motor)
         if FxR == 0:
-            self.motor_pwm = 90.0
+            self.motor_pwm = 1500.0
         elif FxR > 0:
             #self.motor_pwm = max(94,91 + 6.5*FxR)   # using writeMicroseconds() in Arduino
             self.motor_pwm = 91 + 6.5*FxR   # using writeMicroseconds() in Arduino
@@ -64,11 +64,11 @@ class low_level_control(object):
             #self.motor = 69.95 + 68.49*FxR
         self.update_arduino()
     def neutralize(self):
-        self.motor_pwm = 40             # slow down first
-        self.servo_pwm = 90
+        self.motor_pwm = 1400             # slow down first
+        self.servo_pwm = 1500
         self.update_arduino()
         rospy.sleep(1)                  # slow down for 1 sec
-        self.motor_pwm = 90
+        self.motor_pwm = 1500
         self.update_arduino()
     def update_arduino(self):
         # self.ecu_cmd.header.stamp = get_rostime()

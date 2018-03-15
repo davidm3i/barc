@@ -14,7 +14,7 @@
 =# 
 
 using RobotOS
-@rosimport barc.msg: ECU, pos_info, Encoder, Ultrasound, Z_KinBkMdl, Logging
+@rosimport barc.msg: ECU, pos_info, Encoder, Ultrasound, Z_KinBkMdl#, Logging
 @rosimport geometry_msgs.msg: Vector3
 rostypegen()
 using barc.msg
@@ -115,7 +115,7 @@ function main()
     # initiate node, set up publisher / subscriber topics
     init_node("mpc_traj")
     pub = Publisher("ecu", ECU, queue_size=10)
-    pub2 = Publisher("logging", Logging, queue_size=10)
+    # pub2 = Publisher("logging", Logging, queue_size=10)
     s1  = Subscriber("pos_info", pos_info, SE_callback, queue_size=10)
     loop_rate = Rate(10)
     cmdcount = 0
@@ -143,8 +143,8 @@ function main()
             end
         end
         println("Solve Status: ", string(status), "\nSolve Time: ", solvetime,"\n\n")
-        loginfo = Logging(getobjectivevalue(mdl),string(status),solvetime,getvalue(s),getvalue(ey),getvalue(epsi),getvalue(v),getvalue(a),getvalue(d_f))
-        publish(pub2, loginfo)
+        # loginfo = Logging(getobjectivevalue(mdl),string(status),solvetime,getvalue(s),getvalue(ey),getvalue(epsi),getvalue(v),getvalue(a),getvalue(d_f))
+        # publish(pub2, loginfo)
         cmdcount = cmdcount + 1
         rossleep(loop_rate)
     end

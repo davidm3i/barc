@@ -10,6 +10,8 @@
 
     <!-- SIMULATOR -->
     <node pkg="barc" type="vehicle_simulator.py" name="vehicle_simulator" output="screen"/>
+    <!-- USE ROSBAG PLAY ... TO REPUBLISH THE RECORDED SENSOR DATA -->
+    <!-- <node pkg="rosbag" type="play" name="play_rec_sensor_data" args="sim_sensor_data/SENSORDATA_ROSBAG.bag" /> -->
 
     <!-- OBSERVER-->
     <node pkg="barc" type="state_estimation_KinBkMdl.py" name="state_estimation" output="screen">
@@ -35,7 +37,7 @@
     <node pkg="barc" type="controller_low_level.py" name="low_level_controller" output="screen"/>
 
     <!-- MPC CONTROLLER -->
-    <node pkg="barc" type="controller_MPC_traj_KinBkMdl.jl" name="MPC" output="screen"/>
+    <node pkg="barc" type="controller_MPC_traj.jl" name="MPC" output="screen"/>
 
     <!-- Record the experiment data 
     <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/david/simulations/sim_follow_traj -a" /> -->

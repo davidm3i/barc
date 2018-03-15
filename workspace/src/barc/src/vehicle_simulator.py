@@ -15,11 +15,11 @@
 
 import rospy
 import time
-from barc.msg import ECU, Encoder, Z_DynBkMdl
-from sensor_msgs.msg import Imu, NavSatFix
+from barc.msg import ECU, Z_DynBkMdl #, Encoder
+# from sensor_msgs.msg import Imu, NavSatFix
 from numpy import sin, cos, tan, arctan, array, dot, pi
 from numpy import sign, argmin, sqrt, zeros, row_stack, ones, interp
-from bike_model import bikeFE
+# from bike_model import bikeFE
 from system_models import f_KinBkMdl
 # input variables
 d_f         = 0
@@ -43,9 +43,9 @@ def vehicle_simulator():
     # topic subscriptions / publications
     rospy.Subscriber('ecu', ECU, ecu_callback)
     state_pub   = rospy.Publisher('z_vhcl', Z_DynBkMdl, queue_size = 10)
-    imu_pub   = rospy.Publisher('imu/data', Imu, queue_size = 10)
-    enc_pub   = rospy.Publisher('encoder', Encoder, queue_size = 10)
-    gps_pub   = rospy.Publisher('fix', NavSatFix, queue_size = 10)
+    # imu_pub   = rospy.Publisher('imu/data', Imu, queue_size = 10)
+    # enc_pub   = rospy.Publisher('encoder', Encoder, queue_size = 10)
+    # gps_pub   = rospy.Publisher('fix', NavSatFix, queue_size = 10)
 
     # get external force model
     # a0    = rospy.get_param("air_drag_coeff")
@@ -82,9 +82,9 @@ def vehicle_simulator():
         # publish information
         state_pub.publish(Z_DynBkMdl(x, y, psi, v_x, v_y, r) )
 
-        imu_pub.publish()
-        enc_pub.publish()
-        gps_pub.publish()
+        # imu_pub.publish()
+        # enc_pub.publish()
+        # gps_pub.publish()
 
         # wait
         rate.sleep()

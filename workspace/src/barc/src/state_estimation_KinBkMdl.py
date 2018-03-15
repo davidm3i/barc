@@ -18,12 +18,14 @@ import time
 import os
 import math
 from sensor_msgs.msg import Imu, NavSatFix
-from barc.msg import ECU, Encoder, Z_KinBkMdl
+from barc.msg import ECU, Encoder, Z_KinBkMdl, pos_info
 from numpy import pi, cos, sin, eye, array, zeros, unwrap
 from observers import ekf
 from system_models import f_KinBkMdl, h_KinBkMdl
 from tf import transformations
 from lla2flat import lla2flat
+from Localization_helpers import Localization
+from std_msgs.msg import Header
 # from numpy import unwrap
 
 # input variables [default values]
@@ -175,41 +177,55 @@ def imu_callback(data):
     a_z = data.linear_acceleration.z
 
 # encoder measurement update
-def enc_callback(data):
-    global v, t0, dt_v_enc, v_meas
-    global n_FL, n_FR, n_FL_prev, n_FR_prev
-    global n_BL, n_BR, n_BL_prev, n_BR_prev
+# def enc_callback(data):
+#     global v, t0, dt_v_enc, v_meas
+#     global n_FL, n_FR, n_FL_prev, n_FR_prev
+#     global n_BL, n_BR, n_BL_prev, n_BR_prev
 
-    n_FL = data.FL
-    n_FR = data.FR
-    n_BL = data.BL
-    n_BR = data.BR
+#     n_FL = data.FL
+#     n_FR = data.FR
+#     n_BL = data.BL
+#     n_BR = data.BR
 
-    # compute time elapsed
-    tf = time.time()
-    dt = tf - t0
+#     # compute time elapsed
+#     tf = time.time()
+#     dt = tf - t0
 
-    # if enough time elapse has elapsed, estimate v_x
-    if dt >= dt_v_enc:
-        # compute speed :  speed = distance / time
-        v_FL = float(n_FL - n_FL_prev)*dx_qrt/dt
-        v_FR = float(n_FR - n_FR_prev)*dx_qrt/dt
-        v_BL = float(n_BL - n_BL_prev)*dx_qrt/dt
-        v_BR = float(n_BR - n_BR_prev)*dx_qrt/dt
+#     # if enough time elapse has elapsed, estimate v_x
+#     if dt >= dt_v_enc:
+#         # compute speed :  speed = distance / time
+#         v_FL = float(n_FL - n_FL_prev)*dx_qrt/dt
+#         v_FR = float(n_FR - n_FR_prev)*dx_qrt/dt
+#         v_BL = float(n_BL - n_BL_prev)*dx_qrt/dt
+#         v_BR = float(n_BR - n_BR_prev)*dx_qrt/dt
 
-        # Uncomment/modify according to your encoder setup
-        # v_meas    = (v_FL + v_FR)/2.0
-        # Modification for 3 working encoders
-        v_meas = (v_FL + v_BL + v_BR)/3.0
-        # Modification for bench testing (driven wheels only)
-        # v = (v_BL + v_BR)/2.0
+#         # Uncomment/modify according to your encoder setup
+#         # v_meas    = (v_FL + v_FR)/2.0
+#         # Modification for 3 working encoders
+#         v_meas = (v_FL + v_BL + v_BR)/3.0
+#         # Modification for bench testing (driven wheels only)
+#         # v = (v_BL + v_BR)/2.0
 
-        # update old data
-        n_FL_prev   = n_FL
-        n_FR_prev   = n_FR
-        n_BL_prev   = n_BL
-        n_BR_prev   = n_BR
-        t0          = time.time()
+#         # update old data
+#         n_FL_prev   = n_FL
+#         n_FR_prev   = n_FR
+#         n_BL_prev   = n_BL
+#         n_BR_prev   = n_BR
+#         t0          = time.time()
+
+# velocity estimation callback
+def vel_est_callback(data):
+    global v_meas
+
+    v_est_FL = data.FL
+    v_est_FR = data.FR
+    v_est_BL = data.BL
+    v_est_BR = data.BR
+
+    # This is pretty random for now: (once it comes to wheels taking off or wrong enc meas. from one wheel, think about what makes sense)
+    # idea: Get an estimate also from the integration of acceleration from the IMU and compare to vel_est (drifting?)
+    v_meas = (v_FL + v_BL + v_BR)/3.0
+
 
 
 # state estimation node
@@ -222,10 +238,12 @@ def state_estimation():
 
     # topic subscriptions / publications
     rospy.Subscriber('imu/data', Imu, imu_callback)
-    rospy.Subscriber('encoder', Encoder, enc_callback)
+    # rospy.Subscriber('encoder', Encoder, enc_callback)
+    rospy.Subscriber('vel_est', Encoder, vel_est_callback)
     rospy.Subscriber('ecu', ECU, ecu_callback)
     rospy.Subscriber('fix', NavSatFix, gps_callback)
-    state_pub   = rospy.Publisher('state_estimate', Z_KinBkMdl, queue_size = 10)
+    state_pub = rospy.Publisher('state_estimate', Z_KinBkMdl, queue_size = 10)
+    state_pub_pos = rospy.Publisher('pos_info', pos_info, queue_size = 10)
 
     # get vehicle dimension parameters
     L_a = rospy.get_param("L_a")       # distance from CoG to front axel
@@ -241,6 +259,13 @@ def state_estimation():
 
     # get measurement model type according to incorporated sensors
     est_mode = rospy.get_param("state_estimation/est_mode")
+
+    ##################################################################################################################################
+    # Set up track parameters (for simulation, this needs to be changed according to the track the sensor data was recorded for)
+    l = Localization()
+    l.create_track()
+    est_counter = 0
+    ##################################################################################################################################
 
     # set node rate
     loop_rate   = 50
@@ -270,12 +295,27 @@ def state_estimation():
 
         # collect measurements, inputs, system properties
         # collect inputs
-        y   = array([x_local, y_local, psi_meas, v_meas])
+        z   = array([x_local, y_local, psi_meas, v_meas])   # v_meas from arduino calc instead of enc data directly
         u   = array([ d_f, acc ])
         args = (u,vhMdl,dt,est_mode)
 
         # apply EKF and get each state estimate
-        (z_EKF,P) = ekf(f_KinBkMdl, z_EKF, P, h_KinBkMdl, y, Q, R, args )
+        (z_EKF,P) = ekf(f_KinBkMdl, z_EKF, P, h_KinBkMdl, z, Q, R, args )
+
+        # Update track position (x,y,psi,v_x,v_y,psi_dot)
+        l.set_pos(x, y, psi, v, 0, 0)
+
+        # Calculate new s, ey, epsi (only 12.5 Hz, enough for controller that runs at 10 Hz)
+        if est_counter%4 == 0:
+            l.find_s()
+
+        # and then publish position info
+        ros_t = rospy.get_rostime()
+        state_pub_pos.publish(pos_info(Header(stamp=ros_t), l.s, l.ey, l.epsi, v, l.s_start, l.x, l.y, l.v_x, l.v_y,
+                                       l.psi, l.psiDot, 0, 0, 0, 0, 0,
+                                       0, 0, 0, 0, 0, 0, 0,
+                                       (0,), (0,), (0,), l.coeffCurvature.tolist()))
+        est_counter += 1
 
         # wait
         rate.sleep()
