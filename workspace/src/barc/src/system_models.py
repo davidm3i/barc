@@ -23,6 +23,7 @@ def f_KinBkMdl(z, u, vhMdl, dt, est_mode):
     process model
     input: state z at time k, z[k] := [x[k], y[k], psi[k], v[k]]
     output: state at next time step z[k+1]
+            Jacobian at current time step k
     Does not account for drift in psi estimation!
     -> Either put low trust on measured psi-values or add extra state for drift estimation!
     """
@@ -34,14 +35,18 @@ def f_KinBkMdl(z, u, vhMdl, dt, est_mode):
     psi     = z[2]
     v       = z[3]
 
-    d_f     = u[0]
-    a       = u[1]
+    d_f         = u[0]
+    # (a_x,a_y)   = u[1]
+    a           = u[1]
 
     # extract parameters
-    (L_a, L_b)             = vhMdl
+    (L_a, L_b)  = vhMdl
 
     # compute slip angle
-    bta         = arctan( L_a / (L_a + L_b) * tan(d_f) )
+    bta         = math.atan2( L_b * tan(d_f),(L_a + L_b) )
+
+    # compute a
+    # a           = a_x*cos(bta)+a_y*sin(bta)
 
     # compute next state
     x_next      = x + dt*( v*cos(psi + bta) )
@@ -49,30 +54,47 @@ def f_KinBkMdl(z, u, vhMdl, dt, est_mode):
     psi_next    = psi + dt*v/L_b*sin(bta)
     v_next      = v + dt*a  #(a - 0.63*sign(v)*v**2)
 
-    return array([x_next, y_next, psi_next, v_next])
+    jac = array([[1, 0, dt*(-v*sin(psi+bta)), dt*cos(psi+bta)],
+                 [0, 1, dt*v*cos(psi+bta)   , dt*sin(psi+bta)],
+                 [0, 0, 1                   , dt/L_b*sin(bta)],
+                 [0, 0, 0                   , 1              ]])
+
+    return [array([x_next, y_next, psi_next, v_next]),jac]
 
 def h_KinBkMdl(x, u, vhMdl, dt, est_mode):
     """
     Measurement model
+    Outputs:    state x[k+1] at next time step
+                Jacobian at current time step k
     """
-    if est_mode==1:                     # GPS, IMU, Enc
+    if est_mode==1:                 # GPS, IMU, Enc
         C = array([[1, 0, 0, 0],
                    [0, 1, 0, 0],
                    [0, 0, 1, 0],
                    [0, 0, 0, 1]])
-    elif est_mode==2:                     # IMU, Enc
+    elif est_mode==2:               # IMU, Enc
         C = array([[0, 0, 1, 0],
                    [0, 0, 0, 1]])
-    elif est_mode==3:                     # GPS
+    elif est_mode==3:               # GPS
         C = array([[1, 0, 0, 0],
                    [0, 1, 0, 0]])
-    elif est_mode==4:                     # GPS, Enc
+    elif est_mode==4:               # GPS, Enc
         C = array([[1, 0, 0, 0],
                    [0, 1, 0, 0],
                    [0, 0, 0, 1]])
+    elif est_mode==5:               # GPS, IMU
+        C = array([[1, 0, 0, 0],
+                   [0, 1, 0, 0],
+                   [0, 0, 1, 0]])
+    elif est_mode==6:               # Enc
+        C = array([[0, 0, 0, 1]])
+    elif est_mode==7:               # IMU
+        C = array([[0, 0, 1, 0]])
+    elif est_mode==8:               # no measurement
+        C = array([[]])
     else:
         print("Wrong est_mode")
-    return dot(C, x)
+    return [dot(C, x), C]
 
 def f_SensorKinematicModel(z, u, vhMdl, dt, est_mode):
     """ This Sensor model contains a pure Sensor-Model and a Kinematic model. They're independent from each other."""

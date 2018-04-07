@@ -14,8 +14,8 @@
 # ---------------------------------------------------------------------------
 
 from numpy import array, dot, eye, copy
-from numpy import dot, zeros
-from scipy.linalg import inv
+from numpy import dot, zeros, add
+from scipy.linalg import inv, sqrtm
 import rospy
 
 C = array([[1, 0]])
@@ -63,41 +63,114 @@ def kinematicLuembergerObserver(vhat_x, vhat_y, w_z, a_x, a_y, v_x_enc, aph, dt)
     return vhat_kp1
 
 
-def ekf(f, mx_k, P_k, h, y_kp1, Q, R, args):
+def ekf(f, mx_km1, P_km1, h, y_k, Q, R, args):
     """
      EKF   Extended Kalman Filter for nonlinear dynamic systems
      ekf(f,mx,P,h,z,Q,R) returns state estimate, x and state covariance, P 
      for nonlinear dynamic system:
-               x_k+1 = f(x_k) + w_k
-               y_k   = h(x_k) + v_k
-     where w ~ N(0,Q) meaning w is gaussian noise with covariance Q
-           v ~ N(0,R) meaning v is gaussian noise with covariance R
+               x[k] = f(x[k-1],u[k-1]) + v[k-1]
+               y[k] = h(x[k]) + w[k]
+     where v ~ N(0,Q) meaning v is gaussian noise with covariance Q
+           w ~ N(0,R) meaning w is gaussian noise with covariance R
     Inputs:    f: function handle for f(x)
-               mx_k: "a priori" state estimate
-               P_k: "a priori" estimated state covariance
+               mx_km1: "a priori" state estimate
+               P_km1: "a priori" estimated state covariance
                h: fanction handle for h(x)
-               y_kp1: current measurement
+               y_k: current measurement
                Q: process noise covariance 
                R: measurement noise covariance
                args: additional arguments to f(x, *args)
-    Output:    mx_kp1: "a posteriori" state estimate
-               P_kp1: "a posteriori" state covariance
+    Output:    mx_k: "a posteriori" state estimate
+               P_k: "a posteriori" state covariance
                
     Notation: mx_k = E[x_k] and my_k = E[y_k], where m stands for "mean of"
     """
     
-    xDim    = mx_k.size                         # dimension of the state
-    mx_kp1  = f(mx_k, *args)                    # predict next state
-    A       = numerical_jac(f, mx_k, *args)     # linearize process model about current state
-    P_kp1   = dot(dot(A,P_k),A.T) + Q           # proprogate variance
-    my_kp1  = h(mx_kp1, *args)                  # predict future output
-    H       = numerical_jac(h, mx_kp1, *args)   # linearize measurement model about predicted next state
-    P12     = dot(P_kp1, H.T)                   # cross covariance
-    K       = dot(P12, inv( dot(H,P12) + R))    # Kalman filter gain
-    mx_kp1  = mx_kp1 + dot(K,(y_kp1 - my_kp1))  # state estimate
-    P_kp1   = dot(dot(K,R),K.T) + dot( dot( (eye(xDim) - dot(K,H)) , P_kp1)  ,  (eye(xDim) - dot(K,H)).T ) 
+    # prior update
+    xDim    = mx_km1.size                       # dimension of the state
+    procm   = f(mx_km1, *args)                  # evaluate process model
+    mx_k    = procm[0]                          # predict next state
+    # A       = numerical_jac(f, mx_km1, *args)   # linearize process model about current state
+    A       = procm[1]                          # linearize process model about current state
+    P_k     = dot(dot(A,P_km1),A.T) + Q         # propagate variance
 
-    return (mx_kp1, P_kp1)
+    # measurement update
+    # if args[3] != 8:
+    #     # print args[3]
+    #     measm   = h(mx_k, *args)                    # evaluate measurement model
+    #     my_k    = measm[0]                          # predict future output
+    #     # H       = numerical_jac(h, mx_k, *args)     # linearize measurement model about predicted next state
+    #     H       = measm[1]                          # linearize measurement model about predicted next state
+    #     P12     = dot(P_k, H.T)                     # cross covariance
+    #     # print H, P12, my_k, R
+    #     # print dot(H,P12) + R
+    #     K       = dot(P12, inv( dot(H,P12) + R))    # Kalman filter gain
+    #     mx_k    = mx_k + dot(K,(y_k - my_k))        # state estimate
+    #     # print K, mx_k
+    #     P_k     = dot(dot(K,R),K.T) + dot( dot( (eye(xDim) - dot(K,H)) , P_k)  ,  (eye(xDim) - dot(K,H)).T )
+
+    # print mx_k
+
+    return (mx_k, P_k)
+
+def ukf(f, mx_km1, P_km1, h, y_k, Q, R, args):
+    """
+     EKF   Extended Kalman Filter for nonlinear dynamic systems
+     ekf(f,mx,P,h,z,Q,R) returns state estimate, x and state covariance, P 
+     for nonlinear dynamic system:
+               x[k] = f(x[k-1],u[k-1]) + v[k-1]
+               y[k] = h(x[k]) + w[k]
+     where v ~ N(0,Q) meaning v is gaussian noise with covariance Q
+           w ~ N(0,R) meaning w is gaussian noise with covariance R
+    Inputs:    f: function handle for f(x)
+               mx_km1: state estimate last time step
+               P_km1: estimated state covariance last time step
+               h: fanction handle for h(x)
+               y_k: current measurement
+               Q: process noise covariance 
+               R: measurement noise covariance
+               args: additional arguments to f(x, *args)
+    Output:    mx_k: "a posteriori" state estimate
+               P_k: "a posteriori" state covariance
+               
+    Notation: mx_k = E[x_k] and my_k = E[y_k], where m stands for "mean of"
+    """
+    
+    # prior update
+    # generate sigma-points
+    xDim        = mx_km1.size                       # dimension of the state
+    sqrtnP      = sqrtm(xDim*P_km1)
+    sm_km1      = list(add(mx_km1,sqrtnP))
+    sm_km1.extend(list(add(mx_km1,-sqrtnP)))
+    numSigP     = len(sm_km1)
+    # compute prior sigma points
+    sp_k        = []
+    for s in sm_km1:
+        sp_k.append(f(s, *args)[0])                 # evaluate process model for each sigma point
+    # compute prior statistics
+    mx_k        = 1.0/numSigP*sum(sp_k, axis=0)     # estimate prior mean from prior sigma points
+    P_k         = zeros(P_km1.shape)
+    for i in range(numSigP):                        # estimate prior variance from prior sigma points
+        P_k       = P_k+1.0/numSigP*(np.array(sp_k[i])[np.newaxis].T-np.array(states)[np.newaxis].T)*(np.array(sp_k[i])[np.newaxis]-np.array(states)[np.newaxis])
+
+    # measurement update
+    if args[3] != 8:
+        # print args[3]
+        measm   = h(mx_k, *args)                    # evaluate measurement model
+        my_k    = measm[0]                          # predict future output
+        # H       = numerical_jac(h, mx_k, *args)     # linearize measurement model about predicted next state
+        H       = measm[1]                          # linearize measurement model about predicted next state
+        P12     = dot(P_k, H.T)                     # cross covariance
+        # print H, P12, my_k, R
+        # print dot(H,P12) + R
+        K       = dot(P12, inv( dot(H,P12) + R))    # Kalman filter gain
+        mx_k    = mx_k + dot(K,(y_k - my_k))        # state estimate
+        # print K, mx_k
+        P_k     = dot(dot(K,R),K.T) + dot( dot( (eye(xDim) - dot(K,H)) , P_k)  ,  (eye(xDim) - dot(K,H)).T )
+
+    # print mx_k
+
+    return (mx_k, P_k)
 
 
     
@@ -107,7 +180,7 @@ def numerical_jac(f,x, *args):
     using final differences
     """
     # numerical gradient and diagonal hessian
-    y = f(x, *args)
+    y = f(x, *args)[0]
     
     jac = zeros( (y.size,x.size) )
     eps = 1e-5
@@ -115,9 +188,9 @@ def numerical_jac(f,x, *args):
     
     for i in range(x.size):
         xp[i] = x[i] + eps/2.0
-        yhi = f(xp, *args)
+        yhi = f(xp, *args)[0]
         xp[i] = x[i] - eps/2.0
-        ylo = f(xp, *args)
+        ylo = f(xp, *args)[0]
         xp[i] = x[i]
         jac[:,i] = (yhi - ylo) / eps
     return jac

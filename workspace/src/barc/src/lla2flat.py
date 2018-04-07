@@ -61,5 +61,5 @@ def lla2flat(lla, llo, psio, href):
     Yp = (-dNorth * math.sin(psio)) + (dEast * math.cos(psio))
     Zp = -Alt_p - href
  
-    return Xp, Yp, Zp
+    return Xp, -Yp, Zp
 
