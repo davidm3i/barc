@@ -24,8 +24,8 @@ using Ipopt
 
 
 # define model parameters
-L_a     = 0.125         # distance from CoG to front axel
-L_b     = 0.125         # distance from CoG to rear axel
+L_a     = 0.18         # distance from CoG to front axel
+L_b     = 0.14         # distance from CoG to rear axel
 dt      = 0.1           # time step of system
 coeffCurvature   = [0,0,0,0]
 
@@ -72,13 +72,13 @@ mdl     = Model(solver = IpoptSolver(print_level=0,max_cpu_time=0.1))
 @NLparameter(mdl, v0      == 0); @NLconstraint(mdl, v[1]      == v0);
 @NLparameter(mdl, coeff[i=1:length(coeffCurvature)]==coeffCurvature[i]);
 @NLexpression(mdl, c[i = 1:N],    coeff[1]*s[i]^3+coeff[2]*s[i]^2+coeff[3]*s[i]+coeff[4])
-@NLexpression(mdl, bta[i = 1:N],    atan( L_a / (L_a + L_b) * tan( d_f[i]) ) )
+@NLexpression(mdl, bta[i = 1:N],    atan( L_b / (L_a + L_b) * tan( d_f[i]) ) )
 
 @NLexpression(mdl, dsdt[i = 1:N], v[i]*cos(epsi[i]+bta[i])/(1-ey[i]*c[i]))
 for i in 1:N
     @NLconstraint(mdl, s[i+1]     == s[i]       + dt*dsdt[i]  )
     @NLconstraint(mdl, ey[i+1]    == ey[i]      + dt*v[i]*sin(epsi[i]+bta[i])  )
-    @NLconstraint(mdl, epsi[i+1]  == epsi[i]    + dt*(v[i]/L_a*sin(bta[i])-dsdt[i]*c[i])  )
+    @NLconstraint(mdl, epsi[i+1]  == epsi[i]    + dt*(v[i]/L_b*sin(bta[i])-dsdt[i]*c[i])  )
     @NLconstraint(mdl, v[i+1]     == v[i]       + dt*(a[i]  - 0.63 *abs(v[i])*v[i])  )
 end
 

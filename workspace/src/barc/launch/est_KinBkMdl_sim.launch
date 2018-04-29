@@ -2,8 +2,8 @@
 
     <!-- SYSTEM MODEL -->
     <!-- vehicle parameters -->
-    <param name="L_a" type="double" value="0.16" />
-    <param name="L_b" type="double" value="0.16" />
+    <param name="L_a" type="double" value="0.18" />
+    <param name="L_b" type="double" value="0.14" />
     <param name="r_tire" type="double" value="0.05" />
 
     <!-- control parameters -->
@@ -42,6 +42,6 @@
     <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/david/simulations/sim_est_KinBkMdl -a" />
 
     <!-- USE ROSBAG PLAY ... TO REPUBLISH THE RECORDED SENSOR DATA TwentyfiveThree.bag-->
-    <node pkg="rosbag" type="play" name="play_rec_sensor_data" args="/home/david/simulations/sim_sensor_data/FifteenThreePihalf.bag -d 1" />
+    <node pkg="rosbag" type="play" name="play_rec_sensor_data" required="true" args="/home/david/simulations/sim_sensor_data/FifteenThreePihalf.bag -d 1" />
 
 </launch>

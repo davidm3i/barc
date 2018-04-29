@@ -14,7 +14,7 @@
 # ---------------------------------------------------------------------------
 
 from numpy import array, dot, eye, copy
-from numpy import dot, zeros, add
+from numpy import dot, zeros, add, sum, newaxis
 from scipy.linalg import inv, sqrtm
 import rospy
 
@@ -95,19 +95,19 @@ def ekf(f, mx_km1, P_km1, h, y_k, Q, R, args):
     P_k     = dot(dot(A,P_km1),A.T) + Q         # propagate variance
 
     # measurement update
-    # if args[3] != 8:
-    #     # print args[3]
-    #     measm   = h(mx_k, *args)                    # evaluate measurement model
-    #     my_k    = measm[0]                          # predict future output
-    #     # H       = numerical_jac(h, mx_k, *args)     # linearize measurement model about predicted next state
-    #     H       = measm[1]                          # linearize measurement model about predicted next state
-    #     P12     = dot(P_k, H.T)                     # cross covariance
-    #     # print H, P12, my_k, R
-    #     # print dot(H,P12) + R
-    #     K       = dot(P12, inv( dot(H,P12) + R))    # Kalman filter gain
-    #     mx_k    = mx_k + dot(K,(y_k - my_k))        # state estimate
-    #     # print K, mx_k
-    #     P_k     = dot(dot(K,R),K.T) + dot( dot( (eye(xDim) - dot(K,H)) , P_k)  ,  (eye(xDim) - dot(K,H)).T )
+    if args[3] != 8:
+        # print args[3]
+        measm   = h(mx_k, *args)                    # evaluate measurement model
+        my_k    = measm[0]                          # predict future output
+        # H       = numerical_jac(h, mx_k, *args)     # linearize measurement model about predicted next state
+        H       = measm[1]                          # linearize measurement model about predicted next state
+        P12     = dot(P_k, H.T)                     # cross covariance
+        # print H, P12, my_k, R
+        # print dot(H,P12) + R
+        K       = dot(P12, inv( dot(H,P12) + R))    # Kalman filter gain
+        mx_k    = mx_k + dot(K,(y_k - my_k))        # state estimate
+        # print K, mx_k
+        P_k     = dot(dot(K,R),K.T) + dot( dot( (eye(xDim) - dot(K,H)) , P_k)  ,  (eye(xDim) - dot(K,H)).T )
 
     # print mx_k
 
@@ -151,7 +151,8 @@ def ukf(f, mx_km1, P_km1, h, y_k, Q, R, args):
     mx_k        = 1.0/numSigP*sum(sp_k, axis=0)     # estimate prior mean from prior sigma points
     P_k         = zeros(P_km1.shape)
     for i in range(numSigP):                        # estimate prior variance from prior sigma points
-        P_k       = P_k+1.0/numSigP*(np.array(sp_k[i])[np.newaxis].T-np.array(states)[np.newaxis].T)*(np.array(sp_k[i])[np.newaxis]-np.array(states)[np.newaxis])
+        P_k     = P_k+1.0/numSigP*(array(sp_k[i])[newaxis].T-array(mx_k)[newaxis].T)*(array(sp_k[i])[newaxis]-array(mx_k)[newaxis])
+    P_k = P_k + Q                                   # additive noise for testing purposes (add non-linear noise later)
 
     # measurement update
     if args[3] != 8:

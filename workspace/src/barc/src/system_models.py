@@ -33,11 +33,11 @@ def f_KinBkMdl(z, u, vhMdl, dt, est_mode):
     x       = z[0]
     y       = z[1]
     psi     = z[2]
-    v       = z[3]
+    # v       = z[3]
+    psi_dr  = z[3]
 
     d_f         = u[0]
-    # (a_x,a_y)   = u[1]
-    a           = u[1]
+    # a           = u[1]
 
     # extract parameters
     (L_a, L_b)  = vhMdl
@@ -47,19 +47,21 @@ def f_KinBkMdl(z, u, vhMdl, dt, est_mode):
 
     # compute a
     # a           = a_x*cos(bta)+a_y*sin(bta)
+    v = u[1]*cos(d_f)/cos(bta)
 
     # compute next state
     x_next      = x + dt*( v*cos(psi + bta) )
     y_next      = y + dt*( v*sin(psi + bta) )
     psi_next    = psi + dt*v/L_b*sin(bta)
-    v_next      = v + dt*a  #(a - 0.63*sign(v)*v**2)
+    # v_next      = v #+ dt*a  #(a - 0.63*sign(v)*v**2)
+    psi_dr_next = psi_dr
 
     jac = array([[1, 0, dt*(-v*sin(psi+bta)), dt*cos(psi+bta)],
                  [0, 1, dt*v*cos(psi+bta)   , dt*sin(psi+bta)],
                  [0, 0, 1                   , dt/L_b*sin(bta)],
                  [0, 0, 0                   , 1              ]])
 
-    return [array([x_next, y_next, psi_next, v_next]),jac]
+    return [array([x_next, y_next, psi_next, psi_dr_next]),jac]
 
 def h_KinBkMdl(x, u, vhMdl, dt, est_mode):
     """
@@ -67,29 +69,52 @@ def h_KinBkMdl(x, u, vhMdl, dt, est_mode):
     Outputs:    state x[k+1] at next time step
                 Jacobian at current time step k
     """
-    if est_mode==1:                 # GPS, IMU, Enc
-        C = array([[1, 0, 0, 0],
-                   [0, 1, 0, 0],
-                   [0, 0, 1, 0],
-                   [0, 0, 0, 1]])
-    elif est_mode==2:               # IMU, Enc
-        C = array([[0, 0, 1, 0],
-                   [0, 0, 0, 1]])
-    elif est_mode==3:               # GPS
+    
+    # the following inputs will be needed to transform between v_front_wheel and v
+    # d_f         = u[0]
+    # (L_a, L_b)  = vhMdl
+    # bta         = math.atan2( L_b * tan(d_f),(L_a + L_b) )
+
+    # if est_mode==1:                 # GPS, IMU, Enc
+    #     C = array([[1, 0, 0, 0],
+    #                [0, 1, 0, 0],
+    #                [0, 0, 1, 0],
+    #                [0, 0, 0, 1]])
+    # elif est_mode==2:               # IMU, Enc
+    #     C = array([[0, 0, 1, 0],
+    #                [0, 0, 0, 1]])
+    # elif est_mode==3:               # GPS
+    #     C = array([[1, 0, 0, 0],
+    #                [0, 1, 0, 0]])
+    # elif est_mode==4:               # GPS, Enc
+    #     C = array([[1, 0, 0, 0],
+    #                [0, 1, 0, 0],
+    #                [0, 0, 0, 1]])
+    # elif est_mode==5:               # GPS, IMU
+    #     C = array([[1, 0, 0, 0],
+    #                [0, 1, 0, 0],
+    #                [0, 0, 1, 0]])
+    # elif est_mode==6:               # Enc
+    #     C = array([[0, 0, 0, 1]])
+    # elif est_mode==7:               # IMU
+    #     C = array([[0, 0, 1, 0]])
+    # elif est_mode==8:               # no measurement
+    #     C = array([[]])
+    # else:
+    #     print("Wrong est_mode")
+
+    # Since we use the encoder data as input, it cannot be used as a measurement
+    # to correct the estimate at the same time (trivial)
+    # Additionally we need to include the drift in the measurement model (last state)
+    if est_mode==3:                 # GPS
         C = array([[1, 0, 0, 0],
                    [0, 1, 0, 0]])
-    elif est_mode==4:               # GPS, Enc
-        C = array([[1, 0, 0, 0],
-                   [0, 1, 0, 0],
-                   [0, 0, 0, 1]])
     elif est_mode==5:               # GPS, IMU
         C = array([[1, 0, 0, 0],
                    [0, 1, 0, 0],
-                   [0, 0, 1, 0]])
-    elif est_mode==6:               # Enc
-        C = array([[0, 0, 0, 1]])
+                   [0, 0, 1, 1]])
     elif est_mode==7:               # IMU
-        C = array([[0, 0, 1, 0]])
+        C = array([[0, 0, 1, 1]])
     elif est_mode==8:               # no measurement
         C = array([[]])
     else:

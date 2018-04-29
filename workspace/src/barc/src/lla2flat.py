@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import math
 
 def lla2flat(lla, llo, psio, href):

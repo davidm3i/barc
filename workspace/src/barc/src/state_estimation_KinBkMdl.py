@@ -19,18 +19,23 @@ import os
 import math
 from sensor_msgs.msg import Imu, NavSatFix
 from barc.msg import ECU, Encoder, Z_KinBkMdl, pos_info
-from numpy import pi, cos, sin, eye, array, zeros, unwrap, tan
-from observers import ekf
+from numpy import pi, cos, sin, eye, array, zeros, unwrap, tan, diag
+from observers import ekf, ukf
 from system_models import f_KinBkMdl, h_KinBkMdl
 from tf import transformations
 from lla2flat import lla2flat
 from Localization_helpers import Localization
 from std_msgs.msg import Header
+from SteeringMap import servo2df
 # from numpy import unwrap
 
 # input variables [default values]
 d_f         = 0         # steering angle [deg]
 acc         = 0         # acceleration [m/s]
+
+# initial (servo_pwm,curve,bm) (see SteeringMap.py)
+servo_pwm_init = 1500
+args_servo2df = (servo_pwm_init,0,0.0772518905741900-(-0.000371249151551210)*servo_pwm_init)
 
 # raw measurement variables
 yaw_prev = 0
@@ -149,18 +154,25 @@ def ecu_callback(data):
 
 def ecu_pwm_callback(data):
     # read only steering angle from ecu_pwm (acceleration map not really good)
-    global d_f, acc
+    global d_f, acc, args_servo2df
     motor_pwm   = data.motor
     servo_pwm   = data.servo
 
     # use steering command map to get d_f
-    d_f = -0.0007*servo_pwm + 1.1345 #5/12.0*(-0.0012*servo_pwm + 1.8962)
+    # (d_f,args_servo2df) = servo2df(servo_pwm,args_servo2df)
+    # d_f = -0.000527833480631484*servo_pwm+0.836616066800903#0.842150600118722
+    d_f = -0.000525151156156895*servo_pwm+0.834465187133306#0.832364582508679#0.838026451730028 
+    #d_f = -0.000479973711852115*servo_pwm+0.758358464726342
+    #d_f = -4.838020766400743*10**(-4)*servo_pwm+0.775758994667799 #5/9.0*(-0.000935851818915458*servo_pwm + 1.48382531174335) #5/12.0*(-0.0012*servo_pwm + 1.8962) #
 
     # assign the acc input the last measurement from the IMU (noisy!) in direction of the v for KinBkMdl
     # L_a = vhMdl[0]
     # L_b = vhMdl[1]
-    # acc = a_x*cos(math.atan2( L_b * tan(d_f),(L_a + L_b) ))+a_y*sin(math.atan2( L_b * tan(d_f),(L_a + L_b) ))
-    acc = a_x
+    # bta = math.atan2( L_b * tan(d_f),(L_a + L_b) )
+    # v_x_meas = v_meas*cos(d_f)
+    # acc = (a_x+w_z*v_x_meas*tan(bta))*cos(bta)+(a_y-w_z*v_x_meas)*sin(bta)
+    # acc = a_x
+    acc = v_meas
 
 # GPS measurement update
 def gps_callback(data):
@@ -175,7 +187,7 @@ def gps_callback(data):
         gps_alt_init = gps_altitude
         gps_first_call = False
 
-    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), -yaw0*180/pi+90, gps_alt_init) # -2.12098490166
+    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), -yaw0*180/pi+115, gps_alt_init) # 115: FifteenThreePihalf.bag
     x_local = x_gps
     y_local = y_gps 
     z_gps = z_gps
@@ -219,43 +231,6 @@ def imu_callback(data):
     new_imu_meas = True
 
 # encoder measurement update
-# def enc_callback(data):
-#     global v, t0, dt_v_enc, v_meas
-#     global n_FL, n_FR, n_FL_prev, n_FR_prev
-#     global n_BL, n_BR, n_BL_prev, n_BR_prev
-
-#     n_FL = data.FL
-#     n_FR = data.FR
-#     n_BL = data.BL
-#     n_BR = data.BR
-
-#     # compute time elapsed
-#     tf = time.time()
-#     dt = tf - t0
-
-#     # if enough time elapse has elapsed, estimate v_x
-#     if dt >= dt_v_enc:
-#         # compute speed :  speed = distance / time
-#         v_FL = float(n_FL - n_FL_prev)*dx_qrt/dt
-#         v_FR = float(n_FR - n_FR_prev)*dx_qrt/dt
-#         v_BL = float(n_BL - n_BL_prev)*dx_qrt/dt
-#         v_BR = float(n_BR - n_BR_prev)*dx_qrt/dt
-
-#         # Uncomment/modify according to your encoder setup
-#         # v_meas    = (v_FL + v_FR)/2.0
-#         # Modification for 3 working encoders
-#         v_meas = (v_FL + v_BL + v_BR)/3.0
-#         # Modification for bench testing (driven wheels only)
-#         # v = (v_BL + v_BR)/2.0
-
-#         # update old data
-#         n_FL_prev   = n_FL
-#         n_FR_prev   = n_FR
-#         n_BL_prev   = n_BL
-#         n_BR_prev   = n_BR
-#         t0          = time.time()
-
-# encoder measurement update
 def enc_callback(data):
     global t0, v_meas, new_enc_meas
     global n_FL, n_FR, n_BL, n_BR
@@ -266,11 +241,11 @@ def enc_callback(data):
     n_BL = data.BL
     n_BR = data.BR
 
-    # compute the average encoder measurement
-    n_mean = (n_FL + n_FR + n_BL + n_BR)/4
+    # compute the average encoder measurement (no slip at front wheels)
+    n_mean = (n_FL + n_FR)/2.0
 
     # transfer the encoder measurement to angular displacement
-    ang_mean = n_mean*2*pi/8
+    ang_mean = n_mean*2*pi/8.0
 
     # compute time elapsed
     tf = time.time()
@@ -278,17 +253,20 @@ def enc_callback(data):
     
     # compute speed with second-order, backwards-finite-difference estimate
     v_meas    = r_tire*(3*ang_mean - 4*ang_km1 + ang_km2)/(2*dt)
-    # rospy.logwarn("speed = {}".format(v_meas))
 
     # update old data
-    ang_km1 = ang_mean
     ang_km2 = ang_km1
+    ang_km1 = ang_mean
     t0      = time.time()
 
-    new_enc_meas = True
+    # Uncomment this if the encoder measurements are used to correct the estimates
+    # new_enc_meas = True
 
 # velocity estimation callback
 def vel_est_callback(data):
+    # This relies on the published information to the topic vel_est (estimate
+    # produced in Arduino) and is not used for now since the second order 
+    # finite backwards difference is more accurate (see enc_callback)
     global v_meas, new_enc_meas
 
     v_est_FL = data.FL
@@ -296,11 +274,12 @@ def vel_est_callback(data):
     v_est_BL = data.BL
     v_est_BR = data.BR
 
-    # This is pretty random for now: (once it comes to wheels taking off or wrong enc meas. from one wheel, think about what makes sense)
+    # (once it comes to wheels taking off or wrong enc meas. from one wheel, think about what makes sense)
     # idea: Get an estimate also from the integration of acceleration from the IMU and compare to vel_est (drifting?)
-    v_meas = (v_FL + v_BL + v_BR)/3.0
+    v_meas = (v_FL + v_FR)/2.0
 
-    new_enc_meas = True
+    # Uncomment this if the encoder measurements are used to correct the estimates
+    # new_enc_meas = True
 
 
 
@@ -320,7 +299,7 @@ def state_estimation():
     rospy.Subscriber('encoder', Encoder, enc_callback)
     # rospy.Subscriber('vel_est', Encoder, vel_est_callback)
     # rospy.Subscriber('ecu', ECU, ecu_callback)
-    rospy.Subscriber('ecu_pwm', ECU, ecu_pwm_callback)  # use this line only in simulation without controller (no ECU published) -> read commands from recorded data
+    rospy.Subscriber('ecu_pwm', ECU, ecu_pwm_callback)
     rospy.Subscriber('fix', NavSatFix, gps_callback)
     state_pub = rospy.Publisher('state_estimate', Z_KinBkMdl, queue_size = 10)
     state_pub_pos = rospy.Publisher('pos_info', pos_info, queue_size = 10)
@@ -357,24 +336,21 @@ def state_estimation():
     rate        = rospy.Rate(loop_rate)
     t0          = time.time()
 
-    # state estimates
+    # initial state vector (mean)
     x_EKF       = zeros(4)
 
-    # estimation variables for EKF
-    P           = eye(4)                # initial dynamics covariance matrix
-    Q           = array([[q_std**2,0.0,0.0,0.0],
-                         [0.0,q_std**2,0.0,0.0],
-                         [0.0,0.0,q_std**2,0.0],
-                         [0.0,0.0,0.0,q_std**2]])     # process noise covariance matrix
-    R           = array([[0.1,0.0,0.0,0.0],
-                         [0.0,0.1,0.0,0.0],
-                         [0.0,0.0,0.1,0.0],
-                         [0.0,0.0,0.0,r_std]])    # measurement noise covariance matrix
+    # estimation variables for the filter (covariances)
+    # make the uncertainty in the initial psi and/or psi_drift bigger the less we know about the relationship between the relationship
+    # between the GPS coordinate system (namely NESW) and the IMU coordinate system
+    # Precisely: where is the car heading initially w.r.t. NESW?
+    P           = diag([0.1,0.1,50*q_std**2,0.01])                  # initial state covariance matrix
+    Q           = diag([q_std**2,q_std**2,10*q_std**2,5*q_std**2])  # process noise covariance matrix
+    R           = diag([r_std**2,r_std**2,2*r_std**2])              # measurement noise covariance matrix
 
     # publish initial state estimate
-    (x, y, psi, v) = x_EKF
+    (x, y, psi, psi_drift) = x_EKF
     # print x,y,psi,v
-    state_pub.publish( Z_KinBkMdl(x, y, psi, v) )
+    state_pub.publish( Z_KinBkMdl(x, y, psi, v_meas) )
     # collect input
     u   = [ d_f, acc ]
     # u_pub.publish( ECU(u[1],u[0]) )
@@ -385,7 +361,8 @@ def state_estimation():
     while not rospy.is_shutdown():        
 
         # collect measurements
-        z   = array([x_local, y_local, psi_meas, v_meas])   # v_meas from arduino calc instead of enc data directly?
+        # z   = array([x_local, y_local, psi_meas, v_meas])
+        z = array([x_local, y_local, psi_meas])
         meas_pub.publish(Z_KinBkMdl(x_local,y_local,psi_meas,v_meas))
         # print
         # print z
@@ -427,7 +404,7 @@ def state_estimation():
 
         # collect input for the next iteration
         u   = [ d_f, acc ]
-        u_pub.publish( ECU(u[1],u[0]) )
+        # u_pub.publish( ECU(u[1],u[0]) )
 
         # print est_mode
 
@@ -435,14 +412,18 @@ def state_estimation():
         (x_EKF,P) = ekf(f_KinBkMdl, x_EKF, P, h_KinBkMdl, z, Q, R_k, args )
 
         # publish state estimate
-        (x, y, psi, v) = x_EKF
-        print x,y,psi,v
+        # (x, y, psi, v) = x_EKF
+        v = acc
+        (x, y, psi, psi_drift) = x_EKF
+        print x,y,psi,psi_drift
 
         # publish information
         state_pub.publish( Z_KinBkMdl(x, y, psi, v) )
 
         # Update track position (x,y,psi,v_x,v_y,psi_dot)
         l.set_pos(x, y, psi, v, 0, 0)
+        # Comment: in find_s, the linear and angular velocities are not needed,
+        # therefore we can just ignore splitting up v here
 
         # Calculate new s, ey, epsi (only 12.5 Hz, enough for controller that runs at 10 Hz)
         if est_counter%4 == 0:
