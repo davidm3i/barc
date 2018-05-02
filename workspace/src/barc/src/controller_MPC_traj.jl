@@ -81,6 +81,10 @@ for i in 1:N
     @NLconstraint(mdl, epsi[i+1]  == epsi[i]    + dt*(v[i]/L_b*sin(bta[i])-dsdt[i]*c[i])  )
     @NLconstraint(mdl, v[i+1]     == v[i]       + dt*(a[i]  - 0.63 *abs(v[i])*v[i])  )
 end
+# restrict change of steering angle between two time steps
+# for i in 1:N-1
+#     @constraint(mdl, -0.08 <= d_f[i+1]-d_f[i] <= 0.08)
+# end
 
 
 # status update
@@ -104,6 +108,8 @@ println("finished initial solve!")
 
 function SE_callback(msg::pos_info)
     # update mpc initial condition 
+    # println("initial condition updated")
+    # println(msg.coeffCurvature)
     setvalue(s0,     msg.s)
     setvalue(ey0,    msg.ey)
     setvalue(epsi0,  msg.epsi)
@@ -114,10 +120,10 @@ end
 function main()
     # initiate node, set up publisher / subscriber topics
     init_node("mpc_traj")
-    pub = Publisher("ecu", ECU, queue_size=10)
+    pub = Publisher("ecu", ECU, queue_size=10)::RobotOS.Publisher{barc.msg.ECU}
     # pub2 = Publisher("logging", Logging, queue_size=10)
-    s1  = Subscriber("pos_info", pos_info, SE_callback, queue_size=10)
-    loop_rate = Rate(10)
+    s1  = Subscriber("pos_info", pos_info, SE_callback, queue_size=1)::RobotOS.Subscriber{barc.msg.pos_info}
+    loop_rate = Rate(10)    # with the steering angle change bounds, we might need to adapt this (solving became harder)
     cmdcount = 0
     failcount = 0
     while ! is_shutdown()

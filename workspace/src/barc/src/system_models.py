@@ -56,10 +56,14 @@ def f_KinBkMdl(z, u, vhMdl, dt, est_mode):
     # v_next      = v #+ dt*a  #(a - 0.63*sign(v)*v**2)
     psi_dr_next = psi_dr
 
-    jac = array([[1, 0, dt*(-v*sin(psi+bta)), dt*cos(psi+bta)],
-                 [0, 1, dt*v*cos(psi+bta)   , dt*sin(psi+bta)],
-                 [0, 0, 1                   , dt/L_b*sin(bta)],
-                 [0, 0, 0                   , 1              ]])
+    # jac = array([[1, 0, dt*(-v*sin(psi+bta)), dt*cos(psi+bta)],
+    #              [0, 1, dt*v*cos(psi+bta)   , dt*sin(psi+bta)],
+    #              [0, 0, 1                   , dt/L_b*sin(bta)],
+    #              [0, 0, 0                   , 1              ]])
+    jac = array([[1, 0, dt*(-v*sin(psi+bta)), 0],
+                 [0, 1, dt*v*cos(psi+bta)   , 0],
+                 [0, 0, 1                   , 0],
+                 [0, 0, 0                   , 1]])
 
     return [array([x_next, y_next, psi_next, psi_dr_next]),jac]
 

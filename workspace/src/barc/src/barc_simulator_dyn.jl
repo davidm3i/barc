@@ -16,8 +16,8 @@
 using RobotOS
 @rosimport barc.msg: ECU, Vel_est, pos_info
 @rosimport geometry_msgs.msg: Vector3
-@rosimport sensor_msgs.msg: Imu
-@rosimport marvelmind_nav.msg: hedge_pos
+@rosimport sensor_msgs.msg: Imu, NavSatFix
+# @rosimport marvelmind_nav.msg: hedge_pos
 @rosimport std_msgs.msg: Header
 rostypegen()
 using barc.msg
@@ -65,16 +65,16 @@ function main()
 
     # initiate node, set up publisher / subscriber topics
     init_node("barc_sim")
-    pub_gps = Publisher("hedge_pos", hedge_pos, queue_size=1)::RobotOS.Publisher{marvelmind_nav.msg.hedge_pos}
+    pub_gps = Publisher("fix", hedge_pos, queue_size=1)::RobotOS.Publisher{marvelmind_nav.msg.hedge_pos}
     pub_imu = Publisher("imu/data", Imu, queue_size=1)::RobotOS.Publisher{sensor_msgs.msg.Imu}
     pub_vel = Publisher("vel_est", Vel_est, queue_size=1)::RobotOS.Publisher{barc.msg.Vel_est}
     real_val = Publisher("real_val", pos_info, queue_size=1)::RobotOS.Publisher{barc.msg.pos_info}
 
     s1  = Subscriber("ecu", ECU, ECU_callback, (u_current,cmd_log,), queue_size=1)::RobotOS.Subscriber{barc.msg.ECU}
 
-    z_current = zeros(60000,8)
+    z_current = zeros(buffersize,8)
     z_current[1,:] = [0.1 0.0 0.0 0.0 0.0 0.0 0.0 0.0]
-    slip_ang = zeros(60000,2)
+    slip_ang = zeros(buffersize,2)
 
     dt = 0.01
     loop_rate = Rate(1/dt)
@@ -84,7 +84,7 @@ function main()
     dist_traveled = randn(3)        # encoder positions of three wheels
     last_updated  = 0.0
 
-    r_tire      = 0.036             # radius from tire center to perimeter along magnets [m]
+    r_tire      = 0.05             # radius from tire center to perimeter along magnets [m]
     
     imu_drift = 0.0       # simulates yaw-sensor drift over time (slow sine)
 
@@ -95,8 +95,8 @@ function main()
     # modelParams.m   = copy(get_param("m"))
     # modelParams.I_z = copy(get_param("I_z"))
 
-    modelParams.l_A = 0.125
-    modelParams.l_B = 0.125
+    modelParams.l_A = 0.18
+    modelParams.l_B = 0.14
     modelParams.m   = 1.98
     modelParams.I_z = 0.03#0.24             # using homogenous distributed mass over a cuboid
 
@@ -115,7 +115,7 @@ function main()
     t               = 0.0
 
     sim_gps_interrupt   = 0                 # counter if gps interruption is simulated
-    vel_dist_update     = 2*pi*0.036/2      # distance to travel until velocity is updated (half wheel rotation)
+    vel_dist_update     = 2*pi*r_tire/8      # distance to travel until velocity is updated (1/8 wheel rotation)
 
     gps_header = Header()
     while ! is_shutdown()
@@ -262,8 +262,8 @@ function main()
     clean_up(slip_a)
 
     # Save simulation data to file
-    log_path = "$(homedir())/simulations/output-SIM-$(run_id[1:4]).jld"
-    save(log_path,"gps_meas",gps_meas,"z",z_real,"imu_meas",imu_meas,"cmd_log",cmd_log,"slip_a",slip_a)
+    # log_path = "$(homedir())/simulations/output-SIM-$(run_id[1:4]).jld"
+    # save(log_path,"gps_meas",gps_meas,"z",z_real,"imu_meas",imu_meas,"cmd_log",cmd_log,"slip_a",slip_a)
     println("Exiting node... Saving data to $log_path. Simulated $((i-1)*dt) seconds.")
 
 end

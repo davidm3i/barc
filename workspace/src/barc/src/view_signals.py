@@ -89,6 +89,13 @@ if '/u' in topics:
     d_f                 = np.zeros( n_u )
     t_u                 = np.zeros( n_u )
 
+if '/ecu' in topics:
+    idx_ecu             = 0
+    n_ecu               = n_msgs['/ecu']
+    acc_ecu             = np.zeros( n_ecu )
+    d_f_ecu             = np.zeros( n_ecu )
+    t_ecu               = np.zeros( n_ecu )
+
 if '/encoder' in topics:
     idx_enc             = 0
     n_enc               = n_msgs['/encoder']
@@ -100,7 +107,7 @@ if '/encoder' in topics:
 
 # initialize index for each measurement
 t0 = -1
-for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/imu/data','/fix','/state_estimate','/meas','/u','/encoder']) :
+for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/imu/data','/fix','/state_estimate','/meas','/u','/encoder','/ecu']) :
     
     # initial system time
     if t0 == -1:
@@ -163,6 +170,12 @@ for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/imu/data','/fix','/s
         d_f[idx_u]          = msg.servo
         idx_u += 1
 
+    if topic == '/ecu':
+        t_ecu[idx_ecu]      = ts 
+        acc_ecu[idx_ecu]    = msg.motor
+        d_f_ecu[idx_ecu]    = msg.servo
+        idx_ecu += 1
+
     if topic == '/encoder':
         t_enc[idx_enc]      = ts
         n_FL[idx_enc]       = msg.FL
@@ -210,11 +223,11 @@ if '/ecu_pwm' in topics:
     plt.ylabel('steering command')
     plt.grid(axis = 'both')
 
-    plt.figure('d_f', figsize = fig_sz)
-    plt.plot(t_rc, (-0.0010*steering+1.5)*180/pi)    #(-0.0012*steering+1.8962)*180/pi
-    plt.xlabel('t [sec]')
-    plt.ylabel('steering angle [deg]')
-    plt.grid(axis = 'both')
+    # plt.figure('d_f', figsize = fig_sz)
+    # plt.plot(t_rc, (-0.0010*steering+1.5)*180/pi)    #(-0.0012*steering+1.8962)*180/pi
+    # plt.xlabel('t [sec]')
+    # plt.ylabel('steering angle [deg]')
+    # plt.grid(axis = 'both')
 
 if '/imu/data' in topics:
     plt.figure( figsize = fig_sz)
@@ -284,37 +297,50 @@ if '/state_estimate' in topics:
     #     plt.ylabel('v_x [m/s]')
     #     plt.grid(axis = 'both')
 
-if '/meas' in topics and '/u' in topics:    # transform measurement to v
-    plt.figure('v')
-    plt.hold('on')
-    bta         = np.arctan( 0.5 * np.tan(d_f) )
-    plt.plot(t_meas,v_meas*np.cos(d_f)/np.cos(bta),'k*')
-
-if '/u' in topics:
-    plt.figure('d_f')
-    plt.hold('on')
-    plt.plot(t_u,d_f*180/pi)
-
-    if '/imu/data' in topics:
-        plt.figure(figsize = fig_sz)
-        plt.plot(t_imu, lin_acc_x)
-        plt.hold('on')
-        plt.plot(t_u,acc)
-        plt.xlabel('t [sec]')
-        plt.ylabel('linear acceleration')
-        plt.grid(axis = 'both')
-
-if '/encoder' in topics:
-    plt.figure(figsize = fig_sz)
-    plt.plot(t_enc,n_FL)
-    plt.hold('on')
-    plt.plot(t_enc,n_FR)
-    plt.plot(t_enc,n_BL)
-    plt.plot(t_enc,n_BR)
+if '/ecu' in topics:
+    plt.figure( figsize = fig_sz)
+    plt.subplot(211)
+    plt.plot(t_ecu, acc_ecu)
     plt.xlabel('t [sec]')
-    plt.ylabel('encoder counting')
+    plt.ylabel('acceleration ECU')
     plt.grid(axis = 'both')
-    plt.legend(('n_FL','n_FR','n_BL','n_BR'))
+    plt.subplot(212)
+    plt.plot(t_ecu, d_f_ecu)
+    plt.xlabel('t [sec]')
+    plt.ylabel('steering angle ECU')
+    plt.grid(axis = 'both')
+
+# if '/meas' in topics and '/u' in topics:    # transform measurement to v
+#     plt.figure('v')
+#     plt.hold('on')
+#     bta         = np.arctan( 0.5 * np.tan(d_f) )
+#     plt.plot(t_meas,v_meas*np.cos(d_f)/np.cos(bta),'k*')
+
+# if '/u' in topics:
+#     plt.figure('d_f')
+#     plt.hold('on')
+#     plt.plot(t_u,d_f*180/pi)
+
+#     if '/imu/data' in topics:
+#         plt.figure(figsize = fig_sz)
+#         plt.plot(t_imu, lin_acc_x)
+#         plt.hold('on')
+#         plt.plot(t_u,acc)
+#         plt.xlabel('t [sec]')
+#         plt.ylabel('linear acceleration')
+#         plt.grid(axis = 'both')
+
+# if '/encoder' in topics:
+#     plt.figure(figsize = fig_sz)
+#     plt.plot(t_enc,n_FL)
+#     plt.hold('on')
+#     plt.plot(t_enc,n_FR)
+#     plt.plot(t_enc,n_BL)
+#     plt.plot(t_enc,n_BR)
+#     plt.xlabel('t [sec]')
+#     plt.ylabel('encoder counting')
+#     plt.grid(axis = 'both')
+#     plt.legend(('n_FL','n_FR','n_BL','n_BR'))
 
 
 plt.show()

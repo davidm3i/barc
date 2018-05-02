@@ -44,7 +44,7 @@ class Localization(object):
     ds                  = 0                     # distance between nodes
     nPoints             = N_nodes_poly_front+N_nodes_poly_back+1    # number of points for interpolation in total
     OrderXY             = 10                     # order of x-y-polynomial interpolation
-    OrderThetaCurv      = 8                     # order of theta interpolation
+    OrderThetaCurv      = 3                     # order of theta interpolation (was 8 initially!!!!)
     closed              = True                  # open or closed trajectory?
 
     coeffCurvature = zeros(OrderThetaCurv + 1)

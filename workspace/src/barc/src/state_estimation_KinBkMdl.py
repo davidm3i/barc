@@ -73,6 +73,11 @@ n_BL        = 0.0
 n_BR        = 0.0
 r_tire      = rospy.get_param("r_tire") # radius of the tire
 new_enc_meas  = False
+# for vel_est additionally:
+v_est_FL = 0.0
+v_est_FR = 0.0
+v_est_BL = 0.0
+v_est_BR = 0.0
 
 
 # from gps
@@ -81,69 +86,6 @@ y_local = 0.0
 z_local = 0.0
 gps_first_call = True
 new_gps_meas   = False
- 
-# def lla2flat(lla, llo, psio, href):
-#     '''
-#     lla  -- array of geodetic coordinates 
-#             (latitude, longitude, and altitude), 
-#             in [degrees, degrees, meters]. 
- 
-#             Latitude and longitude values can be any value. 
-#             However, latitude values of +90 and -90 may return 
-#             unexpected values because of singularity at the poles.
- 
-#     llo  -- Reference location, in degrees, of latitude and 
-#             longitude, for the origin of the estimation and 
-#             the origin of the flat Earth coordinate system.
- 
-#     psio -- Angular direction of flat Earth x-axis 
-#             (degrees clockwise from north), which is the angle 
-#             in degrees used for converting flat Earth x and y 
-#             coordinates to the North and East coordinates.
- 
-#     href -- Reference height from the surface of the Earth to 
-#             the flat Earth frame with regard to the flat Earth 
-#             frame, in meters.
- 
-#     usage: print(lla2flat((0.1, 44.95, 1000.0), (0.0, 45.0), 5.0, -100.0))
- 
-#     '''
- 
-#     R = 6378137.0  # Equator radius in meters
-#     f = 0.00335281066474748071  # 1/298.257223563, inverse flattening
-
-#     Lat_p = lla[0] * math.pi / 180.0  # from degrees to radians
-#     Lon_p = lla[1] * math.pi / 180.0  # from degrees to radians
-#     Alt_p = lla[2]  # meters
- 
-#     # Reference location (lat, lon), from degrees to radians
-#     Lat_o = llo[0] * math.pi / 180.0
-#     Lon_o = llo[1] * math.pi / 180.0
-     
-#     psio = psio * math.pi / 180.0  # from degrees to radians
- 
-#     dLat = Lat_p - Lat_o
-#     dLon = Lon_p - Lon_o
- 
-#     ff = (2.0 * f) - (f ** 2)  # Can be precomputed
- 
-#     sinLat = math.sin(Lat_o)
- 
-#     # Radius of curvature in the prime vertical
-#     Rn = R / math.sqrt(1 - (ff * (sinLat ** 2)))
- 
-#     # Radius of curvature in the meridian
-#     Rm = Rn * ((1 - ff) / (1 - (ff * (sinLat ** 2))))
- 
-#     dNorth = (dLat) / math.atan2(1, Rm)
-#     dEast = (dLon) / math.atan2(1, (Rn * math.cos(Lat_o)))
- 
-#     # Rotate matrice clockwise
-#     Xp = (dNorth * math.cos(psio)) + (dEast * math.sin(psio))
-#     Yp = (-dNorth * math.sin(psio)) + (dEast * math.cos(psio))
-#     Zp = -Alt_p - href
- 
-#     return Xp, Yp, Zp
 
 
 # ecu command update
@@ -187,11 +129,10 @@ def gps_callback(data):
         gps_alt_init = gps_altitude
         gps_first_call = False
 
-    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), -yaw0*180/pi+115, gps_alt_init) # 115: FifteenThreePihalf.bag
+    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), -yaw0*180/pi+115, gps_alt_init) # 115: FifteenThreePihalf.bag 
     x_local = x_gps
     y_local = y_gps 
     z_gps = z_gps
-    # rospy.logwarn("x = {}, y = {}".format(x_local,y_local))
 
     new_gps_meas = True
 
@@ -276,7 +217,7 @@ def vel_est_callback(data):
 
     # (once it comes to wheels taking off or wrong enc meas. from one wheel, think about what makes sense)
     # idea: Get an estimate also from the integration of acceleration from the IMU and compare to vel_est (drifting?)
-    v_meas = (v_FL + v_FR)/2.0
+    v_meas = (v_est_FL + v_est_FR)/2.0
 
     # Uncomment this if the encoder measurements are used to correct the estimates
     # new_enc_meas = True
@@ -297,7 +238,7 @@ def state_estimation():
     # topic subscriptions / publications
     rospy.Subscriber('imu/data', Imu, imu_callback)
     rospy.Subscriber('encoder', Encoder, enc_callback)
-    # rospy.Subscriber('vel_est', Encoder, vel_est_callback)
+    rospy.Subscriber('vel_est', Encoder, vel_est_callback)
     # rospy.Subscriber('ecu', ECU, ecu_callback)
     rospy.Subscriber('ecu_pwm', ECU, ecu_pwm_callback)
     rospy.Subscriber('fix', NavSatFix, gps_callback)
@@ -345,12 +286,13 @@ def state_estimation():
     # Precisely: where is the car heading initially w.r.t. NESW?
     P           = diag([0.1,0.1,50*q_std**2,0.01])                  # initial state covariance matrix
     Q           = diag([q_std**2,q_std**2,10*q_std**2,5*q_std**2])  # process noise covariance matrix
-    R           = diag([r_std**2,r_std**2,2*r_std**2])              # measurement noise covariance matrix
+    R           = diag([r_std**2,r_std**2,2*r_std**2,r_std**2])     # measurement noise covariance matrix
 
     # publish initial state estimate
     (x, y, psi, psi_drift) = x_EKF
     # print x,y,psi,v
-    state_pub.publish( Z_KinBkMdl(x, y, psi, v_meas) )
+    v = acc
+    state_pub.publish( Z_KinBkMdl(x, y, psi, v) )
     # collect input
     u   = [ d_f, acc ]
     # u_pub.publish( ECU(u[1],u[0]) )
@@ -361,8 +303,7 @@ def state_estimation():
     while not rospy.is_shutdown():        
 
         # collect measurements
-        # z   = array([x_local, y_local, psi_meas, v_meas])
-        z = array([x_local, y_local, psi_meas])
+        z   = array([x_local, y_local, psi_meas, v_meas])
         meas_pub.publish(Z_KinBkMdl(x_local,y_local,psi_meas,v_meas))
         # print
         # print z
@@ -375,7 +316,7 @@ def state_estimation():
         new_gps_meas = False
         new_imu_meas = False
 
-        print u
+        # print u
 
         # reshape covariance matrix according to number of received measurements
         R_k = R[:,z_new][z_new,:]
@@ -415,7 +356,7 @@ def state_estimation():
         # (x, y, psi, v) = x_EKF
         v = acc
         (x, y, psi, psi_drift) = x_EKF
-        print x,y,psi,psi_drift
+        # print x,y,psi,psi_drift
 
         # publish information
         state_pub.publish( Z_KinBkMdl(x, y, psi, v) )

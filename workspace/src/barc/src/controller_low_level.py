@@ -42,15 +42,19 @@ class low_level_control(object):
         #     self.servo_pwm = 95.5 + 118.8*float(msg.servo)
         # elif msg.servo > 0.0:       # left curve
         #     self.servo_pwm = 90.8 + 78.9*float(msg.servo)
-        self.servo_pwm = 1580.0 - 833.33*float(msg.servo)
+        ab = [-0.000525151156156895, 0.834465187133306]
+        # self.servo_pwm = 1580.0 - 833.33*float(msg.servo)
+        self.servo_pwm = (float(msg.servo)-ab[1])/ab[0]
 
         # compute motor command
         FxR = float(msg.motor)
         if FxR == 0:
             self.motor_pwm = 1500.0
         elif FxR > 0:
+            ab = [-0.9030, 0.0084]
+            self.motor_pwm = (FxR - ab[0]*v)/ab[1]
+            # self.motor_pwm = 91 + 6.5*FxR   # using writeMicroseconds() in Arduino
             #self.motor_pwm = max(94,91 + 6.5*FxR)   # using writeMicroseconds() in Arduino
-            self.motor_pwm = 91 + 6.5*FxR   # using writeMicroseconds() in Arduino
 
             # self.motor_pwm = max(94,90.74 + 6.17*FxR)
             #self.motor_pwm = 90.74 + 6.17*FxR
@@ -59,13 +63,15 @@ class low_level_control(object):
             #self.motor_pwm = 90.12 + 5.24*FxR
             # Note: Barc doesn't move for u_pwm < 93
         else:               # motor break / slow down
-            self.motor_pwm = 93.5 + 46.73*FxR
+            ab = [-0.94007, 2.1246*10**(-5)]
+            self.motor_pwm = (FxR - ab[0]*v)/ab[1]
+            # self.motor_pwm = 93.5 + 46.73*FxR
             # self.motor_pwm = 98.65 + 67.11*FxR
             #self.motor = 69.95 + 68.49*FxR
         self.update_arduino()
     def neutralize(self):
         self.motor_pwm = 1400             # slow down first
-        self.servo_pwm = 1500
+        self.servo_pwm = 1580
         self.update_arduino()
         rospy.sleep(1)                  # slow down for 1 sec
         self.motor_pwm = 1500
