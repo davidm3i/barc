@@ -42,7 +42,8 @@ class low_level_control(object):
     Ad_acc = exp(ab[0]*dt)
     Bd_acc = 1/ab[0]*(Ad_acc-1)*ab[1]
     # braking:
-    ab     = [-0.94007, 2.1246*10**(-2)]
+    # ab     = [-0.94007, 2.1246*10**(-2)]
+    # ab     = [-0.777924522367, 0.00151713150358]
     Ad_brk = exp(ab[0]*dt)
     Bd_brk = 1/ab[0]*(Ad_brk-1)*ab[1]
 
