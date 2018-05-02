@@ -15,7 +15,7 @@
 
 from numpy import array, dot, eye, copy
 from numpy import dot, zeros, add, sum, newaxis
-from scipy.linalg import inv, sqrtm
+from scipy.linalg import inv, cholesky
 import rospy
 
 C = array([[1, 0]])
@@ -139,7 +139,7 @@ def ukf(f, mx_km1, P_km1, h, y_k, Q, R, args):
     # prior update
     # generate sigma-points
     xDim        = mx_km1.size                       # dimension of the state
-    sqrtnP      = sqrtm(xDim*P_km1)
+    sqrtnP      = cholesky(xDim*P_km1)
     sm_km1      = list(add(mx_km1,sqrtnP))
     sm_km1.extend(list(add(mx_km1,-sqrtnP)))
     numSigP     = len(sm_km1)

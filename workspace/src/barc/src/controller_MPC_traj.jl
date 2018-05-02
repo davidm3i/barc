@@ -120,9 +120,10 @@ end
 function main()
     # initiate node, set up publisher / subscriber topics
     init_node("mpc_traj")
-    pub = Publisher("ecu", ECU, queue_size=10)::RobotOS.Publisher{barc.msg.ECU}
+    pub = Publisher("ecu", ECU, queue_size=10)      # publishes acceleration at this time step
+    pub3 = Publisher("ecu2", ECU, queue_size=10)    # publishes velocity at next time step
     # pub2 = Publisher("logging", Logging, queue_size=10)
-    s1  = Subscriber("pos_info", pos_info, SE_callback, queue_size=1)::RobotOS.Subscriber{barc.msg.pos_info}
+    s1  = Subscriber("pos_info", pos_info, SE_callback, queue_size=1)
     loop_rate = Rate(10)    # with the steering angle change bounds, we might need to adapt this (solving became harder)
     cmdcount = 0
     failcount = 0
@@ -135,10 +136,13 @@ function main()
             # get optimal solutions
             a_opt   = getvalue(a[1])
             d_f_opt = getvalue(d_f[1])
-            cmd = ECU(a_opt, d_f_opt)     
+            v_opt   = getvalue(v[2])
+            cmd = ECU(a_opt, d_f_opt)
+            cmd2 = ECU(v_opt, d_f_opt)     
             # publish commands
             if cmdcount>10      # ignore first 10 commands since MPC often stagnates during the first seconds (why?)
                 publish(pub, cmd)
+                publish(pub3, cmd2)
             end
             failcount = 0
         else
@@ -146,6 +150,7 @@ function main()
             if failcount >= 5       # if at least 5 unsolved problems in a row
                 cmd = ECU(0,0)      # stop car
                 publish(pub,cmd)
+                publish(pub3, cmd)
             end
         end
         println("Solve Status: ", string(status), "\nSolve Time: ", solvetime,"\n\n")

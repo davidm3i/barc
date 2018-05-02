@@ -49,7 +49,7 @@ def vehicle_simulator():
     imu_pub   = rospy.Publisher('imu/data', Imu, queue_size = 10)
     enc_pub   = rospy.Publisher('vel_est', Encoder, queue_size = 10)
     gps_pub   = rospy.Publisher('fix', NavSatFix, queue_size = 10)
-    servo_pub = rospy.Publisher('ecu_pwm', ECU, queue_size = 10)
+    # servo_pub = rospy.Publisher('ecu_pwm', ECU, queue_size = 10)
 
     # get external force model
     # a0    = rospy.get_param("air_drag_coeff")
@@ -130,9 +130,9 @@ def vehicle_simulator():
             GPS_dt_count = -1
 
         # publish servo_pwm output
-        ab = [-0.000525151156156895, 0.834465187133306]
-        ecu_pwm.servo = (d_f-ab[1])/ab[0]
-        servo_pub.publish(ecu_pwm)
+        # ab = [-0.000525151156156895, 0.834465187133306]
+        # ecu_pwm.servo = (d_f-ab[1])/ab[0]
+        # servo_pub.publish(ecu_pwm)
 
         # wait
         GPS_dt_count += 1
