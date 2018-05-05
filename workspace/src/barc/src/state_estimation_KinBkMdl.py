@@ -30,14 +30,17 @@ from SteeringMap import servo2df
 # from numpy import unwrap
 
 # input variables [default values]
-d_f         = 0         # steering angle [deg]
-acc         = 0         # acceleration [m/s]
+d_f         = 0         # steering angle [rad]
+acc         = 0         # velocity from encoders [m/s] - if state estimator model is changed, this will most likely become acceleration
+# desired input variables from MPC [default values]
+d_f_cmd = 0				# steering angle [rad]
+acc_cmd = 0				# acceleration [m**2/s]
 
 # initial (servo_pwm,curve,bm) (see SteeringMap.py)
 servo_pwm_init = 1500
 args_servo2df = (servo_pwm_init,0,0.0772518905741900-(-0.000371249151551210)*servo_pwm_init)
 
-# raw measurement variables
+# raw measurement variables for IMU
 yaw_prev = 0
 (roll, pitch, yaw, a_x, a_y, a_z, w_x, w_y, w_z) = zeros(9)
 yaw_prev    = 0
@@ -46,21 +49,6 @@ read_yaw0   = False
 psi         = 0
 psi_meas    = 0
 new_imu_meas = False
-
-# from encoder
-# v           = 0
-# v_meas      = 0
-# t0          = time.time()
-# n_FL        = 0                     # counts in the front left tire
-# n_FR        = 0                     # counts in the front right tire
-# n_BL        = 0                     # counts in the back left tire
-# n_BR        = 0                     # counts in the back right tire
-# n_FL_prev   = 0
-# n_FR_prev   = 0
-# n_BL_prev   = 0
-# n_BR_prev   = 0
-# r_tire      = 0.036                  # radius from tire center to perimeter along magnets [m]
-# dx_qrt      = 2.0*pi*r_tire/4.0     # distance along quarter tire edge [m]
 
 # from encoder
 v_meas      = 0.0
@@ -90,10 +78,11 @@ new_gps_meas   = False
 
 # ecu command update
 def ecu_callback(data):
-    global acc, d_f
-    acc         = data.motor        # input acceleration
-    d_f         = data.servo        # input steering angle
+    global acc_cmd, d_f_cmd
+    acc_cmd         = data.motor        # input acceleration
+    d_f_cmd         = data.servo        # input steering angle
 
+# ecu_pwm command update
 def ecu_pwm_callback(data):
     # read only steering angle from ecu_pwm (acceleration map not really good)
     global d_f, acc, args_servo2df
@@ -122,18 +111,22 @@ def gps_callback(data):
     gps_latitude = data.latitude
     gps_longitude = data.longitude
     gps_altitude = data.altitude
-
+	
+	# save the initial measurement (after MPC has been solved the first time)
     if gps_first_call:
         gps_lat_init = gps_latitude
         gps_lng_init = gps_longitude
         gps_alt_init = gps_altitude
-        gps_first_call = False
+        if acc_cmd!=0:
+            gps_first_call = False
 
+	# compute x,y,z coordinates respectively
     (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), -yaw0*180/pi+115, gps_alt_init) # 115: FifteenThreePihalf.bag 
     x_local = x_gps
     y_local = y_gps 
     z_gps = z_gps
 
+	# indicate that a new measurement has been received
     new_gps_meas = True
 
 # imu measurement update
@@ -149,9 +142,10 @@ def imu_callback(data):
     quaternion  = (ori.x, ori.y, ori.z, ori.w)
     (roll, pitch, yaw) = transformations.euler_from_quaternion(quaternion)
 
-    # save initial measurements
+    # save initial measurements (after MPC has been solved the first time)
     if not read_yaw0:
-        read_yaw0   = True
+        if acc_cmd!=0:
+            read_yaw0   = True
         yaw_prev    = yaw
         yaw0        = yaw
     
@@ -169,6 +163,7 @@ def imu_callback(data):
     a_y = data.linear_acceleration.y
     a_z = data.linear_acceleration.z
 
+	# indicate that a new measurement has been received
     new_imu_meas = True
 
 # encoder measurement update
@@ -200,6 +195,7 @@ def enc_callback(data):
     ang_km1 = ang_mean
     t0      = time.time()
 
+	# indicate that a new measurement has been received
     # Uncomment this if the encoder measurements are used to correct the estimates
     # new_enc_meas = True
 
@@ -219,6 +215,7 @@ def vel_est_callback(data):
     # idea: Get an estimate also from the integration of acceleration from the IMU and compare to vel_est (drifting?)
     v_meas = (v_est_FL + v_est_FR)/2.0
 
+	# indicate that a new measurement has been received
     # Uncomment this if the encoder measurements are used to correct the estimates
     # new_enc_meas = True
 
@@ -238,8 +235,8 @@ def state_estimation():
     # topic subscriptions / publications
     rospy.Subscriber('imu/data', Imu, imu_callback)
     rospy.Subscriber('encoder', Encoder, enc_callback)
-    rospy.Subscriber('vel_est', Encoder, vel_est_callback)
-    # rospy.Subscriber('ecu', ECU, ecu_callback)
+    # rospy.Subscriber('vel_est', Encoder, vel_est_callback)
+    rospy.Subscriber('ecu', ECU, ecu_callback)
     rospy.Subscriber('ecu_pwm', ECU, ecu_pwm_callback)
     rospy.Subscriber('fix', NavSatFix, gps_callback)
     state_pub = rospy.Publisher('state_estimate', Z_KinBkMdl, queue_size = 10)
