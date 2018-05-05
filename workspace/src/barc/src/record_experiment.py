@@ -162,7 +162,7 @@ class RecordExperiment():
                     del chunk_ts[k]
 
         for k, v in chunk_dict.items():
-            # self.upload_message(k, chunk_msg[k], chunk_ts[k])
+            self.upload_message(k, chunk_msg[k], chunk_ts[k])
 
         print("done uploading!")
 
