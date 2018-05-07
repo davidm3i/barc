@@ -92,7 +92,7 @@ def ecu_pwm_callback(data):
     # use steering command map to get d_f
     # (d_f,args_servo2df) = servo2df(servo_pwm,args_servo2df)
     # d_f = -0.000527833480631484*servo_pwm+0.836616066800903#0.842150600118722
-    d_f = -0.000525151156156895*servo_pwm+0.834465187133306#0.832364582508679#0.838026451730028 
+    d_f = -0.000525151156156895*servo_pwm+0.834465187133306 #0.832364582508679#0.838026451730028 
     #d_f = -0.000479973711852115*servo_pwm+0.758358464726342
     #d_f = -4.838020766400743*10**(-4)*servo_pwm+0.775758994667799 #5/9.0*(-0.000935851818915458*servo_pwm + 1.48382531174335) #5/12.0*(-0.0012*servo_pwm + 1.8962) #
 
@@ -121,7 +121,7 @@ def gps_callback(data):
             gps_first_call = False
 
 	# compute x,y,z coordinates respectively
-    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), -yaw0*180/pi+115, gps_alt_init) # 115: FifteenThreePihalf.bag 
+    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), 80.0, gps_alt_init) # 115: FifteenThreePihalf.bag -yaw0*180/pi+115
     x_local = x_gps
     y_local = y_gps 
     z_gps = z_gps

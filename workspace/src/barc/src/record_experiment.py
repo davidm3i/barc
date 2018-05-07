@@ -61,7 +61,7 @@ class RecordExperiment():
             os.makedirs(image_dir)
          
         # start rosrecord for following topics
-        self.topics = ['/imu/data', '/encoder', '/ecu', '/ecu_pwm', '/image_transformed/compressed/', '/fix']
+        self.topics = ['/imu/data', '/encoder', '/ecu', '/ecu_pwm', '/image_transformed/compressed/', '/fix', '/pos_info', '/state_estimate', '/ecu0', '/ecu2']
         self.rosbag_file_path = os.path.abspath(rosbag_dir + '/' + self.experiment_name + '.bag')
         self.start_record_data()
         

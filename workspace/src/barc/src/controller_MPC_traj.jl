@@ -33,7 +33,7 @@ coeffCurvature   = [0,0,0,0]
 N       = 15
 
 # define targets [generic values]
-v_ref   = 0.8
+v_ref   = 1.7
 
 # define objective function values
 c_ey = 50
@@ -122,6 +122,7 @@ function main()
     init_node("mpc_traj")
     pub = Publisher("ecu", ECU, queue_size=10)      # publishes acceleration at this time step
     pub3 = Publisher("ecu2", ECU, queue_size=10)    # publishes velocity at next time step at rear wheels
+    pub0 = Publisher("ecu0", ECU, queue_size=10)    # publishes velocity at current time step
     # pub2 = Publisher("logging", Logging, queue_size=10)
     s1  = Subscriber("pos_info", pos_info, SE_callback, queue_size=1)
     loop_rate = Rate(10)    # with the steering angle change bounds, we might need to adapt this (solving became harder)
@@ -138,9 +139,11 @@ function main()
             d_f_opt = getvalue(d_f[1])
             v_opt   = getvalue(v[2])*cos(getvalue(bta[2]))
             cmd = ECU(a_opt, d_f_opt)
-            cmd2 = ECU(v_opt, d_f_opt)     
+            cmd2 = ECU(v_opt, d_f_opt)
+            cmd0 = ECU(getvalue(v[1]), d_f_opt)
             # publish commands
             if cmdcount>10      # ignore first 10 commands since MPC often stagnates during the first seconds (why?)
+                publish(pub0, cmd0)
                 publish(pub, cmd)
                 publish(pub3, cmd2)
             end
@@ -149,7 +152,8 @@ function main()
             failcount = failcount + 1
             if failcount >= 5       # if at least 5 unsolved problems in a row
                 cmd = ECU(0,0)      # stop car
-                publish(pub,cmd)
+                publish(pub0, cmd)
+                publish(pub, cmd)
                 publish(pub3, cmd)
             end
         end

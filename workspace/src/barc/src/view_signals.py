@@ -139,7 +139,7 @@ for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/imu/data','/fix','/s
         longitude[idx_gps]          = lng
         latitude[idx_gps]           = lat
         altitude[idx_gps]           = alt
-        (X[idx_gps], Y[idx_gps],_)  = lla2flat((lat,lng,alt), (latitude[0], longitude[0]), -yaw[0]*180/pi+115, altitude[0])
+        (X[idx_gps], Y[idx_gps],_)  = lla2flat((lat,lng,alt), (latitude[0], longitude[0]), 80, altitude[0]) #-yaw[0]*180/pi+115
         idx_gps += 1
 
     if topic == '/ecu_pwm':
@@ -330,17 +330,17 @@ if '/ecu' in topics:
 #         plt.ylabel('linear acceleration')
 #         plt.grid(axis = 'both')
 
-# if '/encoder' in topics:
-#     plt.figure(figsize = fig_sz)
-#     plt.plot(t_enc,n_FL)
-#     plt.hold('on')
-#     plt.plot(t_enc,n_FR)
-#     plt.plot(t_enc,n_BL)
-#     plt.plot(t_enc,n_BR)
-#     plt.xlabel('t [sec]')
-#     plt.ylabel('encoder counting')
-#     plt.grid(axis = 'both')
-#     plt.legend(('n_FL','n_FR','n_BL','n_BR'))
+if '/encoder' in topics:
+    plt.figure(figsize = fig_sz)
+    plt.plot(t_enc,n_FL)
+    plt.hold('on')
+    plt.plot(t_enc,n_FR)
+    plt.plot(t_enc,n_BL)
+    plt.plot(t_enc,n_BR)
+    plt.xlabel('t [sec]')
+    plt.ylabel('encoder counting')
+    plt.grid(axis = 'both')
+    plt.legend(('n_FL','n_FR','n_BL','n_BR'))
 
 
 plt.show()

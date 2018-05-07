@@ -25,9 +25,14 @@ from numpy import exp
 from barc.msg import ECU, pos_info
 import rospy
 
+v0 = 0.0
+
 class low_level_control(object):
     motor_pwm = 1500
     servo_pwm = 1580
+
+    motor_pwm_bounds = [500, 2500]	# prevent extreme maneuvers
+    servo_pwm_bounds = [1200, 1900]	# make sure servo doesn't get damaged
     # str_ang_max = 35
     # str_ang_min = -35
     ecu_pub = 0
@@ -39,11 +44,15 @@ class low_level_control(object):
     # vdot(t) = ab[0]*v(t) + ab[1]*motor_pwm(t) => v[k+1] = Ad*v[k] + Bd*motor_pwm[k]
     # accelerating:
     ab     = [-0.9030, 0.0084]
+    # ab     = [-0.504303251448, 0.0128286494129]
+    # ab     = [-0.632345330573, 0.010641048718]
+    # ab     = [-0.732345330573, 0.009641048718]
     Ad_acc = exp(ab[0]*dt)
     Bd_acc = 1/ab[0]*(Ad_acc-1)*ab[1]
     # braking:
     # ab     = [-0.94007, 2.1246*10**(-2)]
     # ab     = [-0.777924522367, 0.00151713150358]
+    # ab     = [-0.397097742996, 0.000940711134136]
     Ad_brk = exp(ab[0]*dt)
     Bd_brk = 1/ab[0]*(Ad_brk-1)*ab[1]
 
@@ -68,13 +77,12 @@ class low_level_control(object):
         v1 = float(msg.motor)
         print v1, v0
         # if FxR == 0:
-        if v1 == v0:
-            self.motor_pwm = 1500.0
-            print self.motor_pwm
+        #if v1 == v0:
+         #   self.motor_pwm = 1500.0
         # elif FxR > 0:
-        elif v1 > v0:
+        if v1 >= v0:
             self.motor_pwm = (v1 - self.Ad_acc*v0)/self.Bd_acc + 1500
-            print self.motor_pwm, self.Ad_acc, self.Bd_acc
+            print 'acc', self.Ad_acc, self.Bd_acc
             # self.motor_pwm = 91 + 6.5*FxR   # using writeMicroseconds() in Arduino
             #self.motor_pwm = max(94,91 + 6.5*FxR)   # using writeMicroseconds() in Arduino
 
@@ -86,12 +94,23 @@ class low_level_control(object):
             # Note: Barc doesn't move for u_pwm < 93
         else:               # motor break / slow down
             self.motor_pwm = (v1 - self.Ad_brk*v0)/self.Bd_brk + 1500
-            print self.motor_pwm, self.Ad_brk, self.Bd_brk
+            print 'brk', self.Ad_brk, self.Bd_brk
             # self.motor_pwm = (FxR - ab[0]*v)/ab[1]
             # self.motor_pwm = 93.5 + 46.73*FxR
             # self.motor_pwm = 98.65 + 67.11*FxR
             #self.motor = 69.95 + 68.49*FxR
+
+        if self.servo_pwm < self.servo_pwm_bounds[0]:
+            self.servo_pwm = self.servo_pwm_bounds[0]
+        if self.servo_pwm > self.servo_pwm_bounds[1]:
+            self.servo_pwm = self.servo_pwm_bounds[1]
+        if self.motor_pwm < self.motor_pwm_bounds[0]:
+            self.motor_pwm = self.motor_pwm_bounds[0]
+        if self.motor_pwm > self.motor_pwm_bounds[1]:
+            self.motor_pwm = self.motor_pwm_bounds[1]
+
         self.update_arduino()
+        print self.motor_pwm
     def neutralize(self):
         self.motor_pwm = 1400             # slow down first
         self.servo_pwm = 1580
@@ -109,13 +128,18 @@ def SE_callback(msg):
     global v0
     v0 = msg.v
 
+def v0_callback(msg):
+    global v0
+    v0 = msg.motor
+
 def arduino_interface():
     # launch node, subscribe to motorPWM and servoPWM, publish ecu
     init_node('arduino_interface')
     llc = low_level_control()
 
+    Subscriber('ecu0', ECU, v0_callback, queue_size = 1)
     Subscriber('ecu2', ECU, llc.pwm_converter_callback, queue_size = 1)
-    Subscriber('pos_info', pos_info, SE_callback, queue_size = 1)
+    # Subscriber('pos_info', pos_info, SE_callback, queue_size = 1)
     llc.ecu_pub = Publisher('ecu_pwm', ECU, queue_size = 1)
 
     # Set motor to neutral on shutdown
