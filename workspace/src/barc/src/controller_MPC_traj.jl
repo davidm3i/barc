@@ -33,7 +33,7 @@ coeffCurvature   = [0,0,0,0]
 N       = 15
 
 # define targets [generic values]
-v_ref   = 1.7
+v_ref   = 1.0
 
 # define objective function values
 c_ey = 50
@@ -49,17 +49,19 @@ c_epsi_f = 0
 # states: position (x,y), yaw angle, and velocity
 # inputs: acceleration, steering angle 
 println("Creating kinematic bicycle model ....")
-mdl     = Model(solver = IpoptSolver(print_level=0,max_cpu_time=0.1))
+# This turns out to be very restrictive for the Arduino at some time steps
+# -> think about increasing the computation time and reducing the frequency
+mdl     = Model(solver = IpoptSolver(print_level=0,max_cpu_time=0.25))
 
 @variable( mdl, s[1:(N+1)] )
 @variable( mdl, ey[1:(N+1)] )
 @variable( mdl, epsi[1:(N+1)] )
 @variable( mdl, 0.0 <= v[1:(N+1)] <= 3.0 )
 @variable( mdl, 2.0 >= a[1:N] >= -1.0 )
-@variable( mdl, -0.3 <= d_f[1:N] <= 0.3 )
+@variable( mdl, -0.2 <= d_f[1:N] <= 0.2 )
 
 # define objective function
-@NLobjective(mdl, Min, sum{c_ey*ey[i]^2+c_ev*(v[i]-v_ref)^2+c_epsi*epsi[i]^2+c_df*d_f[i]^2+(a[i])^2,i=1:N} + c_ey_f*ey[N+1]^2 + c_ev_f*(v[N+1]-v_ref)^2 + c_epsi_f*epsi[N+1]^2)
+@NLobjective(mdl, Min, sum(c_ey*ey[i]^2+c_ev*(v[i]-v_ref)^2+c_epsi*epsi[i]^2+c_df*d_f[i]^2+(a[i])^2 for i=1:N) + c_ey_f*ey[N+1]^2 + c_ev_f*(v[N+1]-v_ref)^2 + c_epsi_f*epsi[N+1]^2)
 
 # define constraints
 # define system dynamics
@@ -82,9 +84,9 @@ for i in 1:N
     @NLconstraint(mdl, v[i+1]     == v[i]       + dt*(a[i]  - 0.63 *abs(v[i])*v[i])  )
 end
 # restrict change of steering angle between two time steps
-# for i in 1:N-1
-#     @constraint(mdl, -0.08 <= d_f[i+1]-d_f[i] <= 0.08)
-# end
+for i in 1:N-1
+    @constraint(mdl, -0.06 <= d_f[i+1]-d_f[i] <= 0.06)
+end
 
 
 # status update
@@ -120,11 +122,11 @@ end
 function main()
     # initiate node, set up publisher / subscriber topics
     init_node("mpc_traj")
-    pub = Publisher("ecu", ECU, queue_size=10)      # publishes acceleration at this time step
-    pub3 = Publisher("ecu2", ECU, queue_size=10)    # publishes velocity at next time step at rear wheels
-    pub0 = Publisher("ecu0", ECU, queue_size=10)    # publishes velocity at current time step
+    pub = Publisher{ECU}("ecu", queue_size=10)      # publishes acceleration at this time step
+    pub3 = Publisher{ECU}("ecu2", queue_size=10)    # publishes velocity at next time step at rear wheels
+    pub0 = Publisher{ECU}("ecu0", queue_size=10)    # publishes velocity at current time step
     # pub2 = Publisher("logging", Logging, queue_size=10)
-    s1  = Subscriber("pos_info", pos_info, SE_callback, queue_size=1)
+    s1  = Subscriber{pos_info}("pos_info", SE_callback, queue_size=1)
     loop_rate = Rate(10)    # with the steering angle change bounds, we might need to adapt this (solving became harder)
     cmdcount = 0
     failcount = 0
@@ -141,6 +143,7 @@ function main()
             cmd = ECU(a_opt, d_f_opt)
             cmd2 = ECU(v_opt, d_f_opt)
             cmd0 = ECU(getvalue(v[1]), d_f_opt)
+            # println(d_f_opt)
             # publish commands
             if cmdcount>10      # ignore first 10 commands since MPC often stagnates during the first seconds (why?)
                 publish(pub0, cmd0)
@@ -155,6 +158,7 @@ function main()
                 publish(pub0, cmd)
                 publish(pub, cmd)
                 publish(pub3, cmd)
+                println("Car stopped because failcount hit.")
             end
         end
         println("Solve Status: ", string(status), "\nSolve Time: ", solvetime,"\n\n")

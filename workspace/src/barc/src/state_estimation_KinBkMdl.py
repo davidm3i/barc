@@ -37,8 +37,8 @@ d_f_cmd = 0				# steering angle [rad]
 acc_cmd = 0				# acceleration [m**2/s]
 
 # initial (servo_pwm,curve,bm) (see SteeringMap.py)
-servo_pwm_init = 1500
-args_servo2df = (servo_pwm_init,0,0.0772518905741900-(-0.000371249151551210)*servo_pwm_init)
+# servo_pwm_init = 1500
+# args_servo2df = (servo_pwm_init,0,0.0772518905741900-(-0.000371249151551210)*servo_pwm_init)
 
 # raw measurement variables for IMU
 yaw_prev = 0
@@ -282,7 +282,7 @@ def state_estimation():
     # between the GPS coordinate system (namely NESW) and the IMU coordinate system
     # Precisely: where is the car heading initially w.r.t. NESW?
     P           = diag([0.1,0.1,50*q_std**2,0.01])                  # initial state covariance matrix
-    Q           = diag([q_std**2,q_std**2,10*q_std**2,5*q_std**2])  # process noise covariance matrix
+    Q           = diag([q_std**2,q_std**2,10*q_std**2,2*q_std**2])  # process noise covariance matrix (drift: 5)
     R           = diag([r_std**2,r_std**2,2*r_std**2,r_std**2])     # measurement noise covariance matrix
 
     # publish initial state estimate

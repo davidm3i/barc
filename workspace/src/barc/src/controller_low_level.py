@@ -26,6 +26,7 @@ from barc.msg import ECU, pos_info
 import rospy
 
 v0 = 0.0
+MPC_solve_time = 0.1
 
 class low_level_control(object):
     motor_pwm = 1500
@@ -38,7 +39,7 @@ class low_level_control(object):
     ecu_pub = 0
     ecu_cmd = ECU()
     # use this time step for the discretized map from velocity to motor_pwm (same as in MPC!)
-    dt = 1.0 / 10
+    dt = 1.0 / 10 + MPC_solve_time
     # discretize the map from motor_pwm to velocity for accelerating and braking
     # (exact discretization of linear system with (matrix) exponential)
     # vdot(t) = ab[0]*v(t) + ab[1]*motor_pwm(t) => v[k+1] = Ad*v[k] + Bd*motor_pwm[k]
@@ -75,14 +76,14 @@ class low_level_control(object):
         # compute motor command
         # FxR = float(msg.motor)
         v1 = float(msg.motor)
-        print v1, v0
+        # print v1, v0
         # if FxR == 0:
         #if v1 == v0:
          #   self.motor_pwm = 1500.0
         # elif FxR > 0:
         if v1 >= v0:
             self.motor_pwm = (v1 - self.Ad_acc*v0)/self.Bd_acc + 1500
-            print 'acc', self.Ad_acc, self.Bd_acc
+            # print 'acc', self.Ad_acc, self.Bd_acc
             # self.motor_pwm = 91 + 6.5*FxR   # using writeMicroseconds() in Arduino
             #self.motor_pwm = max(94,91 + 6.5*FxR)   # using writeMicroseconds() in Arduino
 
@@ -94,7 +95,7 @@ class low_level_control(object):
             # Note: Barc doesn't move for u_pwm < 93
         else:               # motor break / slow down
             self.motor_pwm = (v1 - self.Ad_brk*v0)/self.Bd_brk + 1500
-            print 'brk', self.Ad_brk, self.Bd_brk
+            # print 'brk', self.Ad_brk, self.Bd_brk
             # self.motor_pwm = (FxR - ab[0]*v)/ab[1]
             # self.motor_pwm = 93.5 + 46.73*FxR
             # self.motor_pwm = 98.65 + 67.11*FxR

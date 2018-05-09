@@ -73,7 +73,7 @@ def vehicle_simulator():
 
     # set measurement rates
     dt_GPS      = 1.0/8
-    GPS_dt_count= dt_GPS/ts + 0.1   # crate a measurement at time 0
+    GPS_dt_count= dt_GPS/ts + 0.1   # create a measurement at time 0
     # dt_Enc    = 1.0/50
     # dt_Imu    = 1.0/50
 
@@ -106,6 +106,7 @@ def vehicle_simulator():
         v    = v + ts*(acc -0.63*sign(v)*v**2)
         bta  = math.atan2( L_b * tan(d_f),(L_a + L_b) )
         v_FW = v*cos(bta)/cos(d_f)
+        v_RW = v*cos(bta)
 
         # publish 'true' state information
         state_pub.publish(Z_KinBkMdl(x, y, psi, v) )
@@ -116,15 +117,15 @@ def vehicle_simulator():
         imu_pub.publish(imudata)
 
         # Publish Encoder measurement
-        encdata.FL = v
-        encdata.FR = v
-        encdata.BL = v
-        encdata.BR = v
+        encdata.FL = v_FW
+        encdata.FR = v_FW
+        encdata.BL = v_RW
+        encdata.BR = v_RW
         enc_pub.publish(encdata)
 
         # publish GPS measurement
         if ts*GPS_dt_count >= dt_GPS:
-            (gpsdata.latitude, gpsdata.longitude, gpsdata.altitude) = flat2lla((x,y,0.0),(0.0, 0.0), 115, 0.0)
+            (gpsdata.latitude, gpsdata.longitude, gpsdata.altitude) = flat2lla((x,y,0.0),(0.0, 0.0), 80.0, 0.0)
             gpsdata.header.stamp = t_ros
             gps_pub.publish(gpsdata)
             GPS_dt_count = -1

@@ -39,9 +39,9 @@
     <node pkg="barc" type="controller_MPC_traj.jl" name="MPC" output="screen"/>
 
     <!-- Record the experiment data -->
-    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/david/simulations/sim_follow_traj -a" />
+    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/odroid/simulations/sim_follow_traj -a" />
 
     <!-- USE ROSBAG PLAY ... TO REPUBLISH THE RECORDED SENSOR DATA -->
-    <!-- <node pkg="rosbag" type="play" name="play_rec_sensor_data" args="/home/david/simulations/sim_sensor_data/SENSORDATA_ROSBAG.bag" /> -->
+    <!-- <node pkg="rosbag" type="play" name="play_rec_sensor_data" args="~/simulations/sim_sensor_data/SENSORDATA_ROSBAG.bag" /> -->
 
 </launch>
