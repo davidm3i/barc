@@ -80,6 +80,7 @@ def vehicle_simulator():
     # load model parameters
     L_a = rospy.get_param("L_a")       # distance from CoG to front axel
     L_b = rospy.get_param("L_b")       # distance from CoG to rear axel
+    psio_gps = rospy.get_param("psio_gps") # initial heading GPS
 
     # set initial conditions 
     x   = 0
@@ -125,7 +126,7 @@ def vehicle_simulator():
 
         # publish GPS measurement
         if ts*GPS_dt_count >= dt_GPS:
-            (gpsdata.latitude, gpsdata.longitude, gpsdata.altitude) = flat2lla((x,y,0.0),(0.0, 0.0), 80.0, 0.0)
+            (gpsdata.latitude, gpsdata.longitude, gpsdata.altitude) = flat2lla((x,y,0.0),(0.0, 0.0), psio_gps, 0.0)
             gpsdata.header.stamp = t_ros
             gps_pub.publish(gpsdata)
             GPS_dt_count = -1

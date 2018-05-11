@@ -74,7 +74,9 @@ y_local = 0.0
 z_local = 0.0
 gps_first_call = True
 new_gps_meas   = False
+psio_gps = rospy.get_param("psio_gps") # initial heading angle GPS
 
+sim_mode = rospy.get_param("sim_mode") # indicates whether we are in simulation without /ecu topic
 
 # ecu command update
 def ecu_callback(data):
@@ -117,11 +119,11 @@ def gps_callback(data):
         gps_lat_init = gps_latitude
         gps_lng_init = gps_longitude
         gps_alt_init = gps_altitude
-        if acc_cmd!=0:
+        if acc_cmd!=0 or sim_mode:
             gps_first_call = False
 
 	# compute x,y,z coordinates respectively
-    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), 80.0, gps_alt_init) # 115: FifteenThreePihalf.bag -yaw0*180/pi+115
+    (x_gps, y_gps, z_gps) = lla2flat((gps_latitude, gps_longitude, gps_altitude),(gps_lat_init, gps_lng_init), psio_gps, gps_alt_init) # 115: FifteenThreePihalf.bag -yaw0*180/pi+115
     x_local = x_gps
     y_local = y_gps 
     z_gps = z_gps
@@ -144,7 +146,7 @@ def imu_callback(data):
 
     # save initial measurements (after MPC has been solved the first time)
     if not read_yaw0:
-        if acc_cmd!=0:
+        if acc_cmd!=0 or sim_mode:
             read_yaw0   = True
         yaw_prev    = yaw
         yaw0        = yaw
@@ -301,10 +303,10 @@ def state_estimation():
 
         # collect measurements
         z   = array([x_local, y_local, psi_meas, v_meas])
-        meas_pub.publish(Z_KinBkMdl(x_local,y_local,psi_meas,v_meas))
         # print
         # print z
         z_new = array([new_gps_meas, new_gps_meas, new_imu_meas, new_enc_meas])
+        meas_pub.publish(Z_KinBkMdl(x_local,y_local,psi_meas,v_meas))
         z   = z[z_new]
         
 

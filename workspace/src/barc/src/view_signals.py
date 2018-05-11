@@ -15,6 +15,7 @@ from lla2flat import lla2flat
 import Tkinter, tkFileDialog
 
 rosbag_dir = os.path.expanduser("~") + '/simulations'
+initafterecu = False
 
 # select bag file
 root = Tkinter.Tk()
@@ -107,7 +108,7 @@ if '/encoder' in topics:
 
 # initialize index for each measurement
 t0 = -1
-for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/imu/data','/fix','/state_estimate','/meas','/u','/encoder','/ecu']) :
+for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/ecu','/imu/data','/state_estimate','/meas','/u','/encoder']) :
     
     # initial system time
     if t0 == -1:
@@ -130,17 +131,6 @@ for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/imu/data','/fix','/s
         lin_acc_z[idx_imu]  = msg.linear_acceleration.z
         idx_imu     += 1
         # print yaw[0]
-
-    if topic == '/fix':
-        lng                         = msg.longitude
-        lat                         = msg.latitude
-        alt                         = msg.altitude
-        t_gps[idx_gps]              = ts 
-        longitude[idx_gps]          = lng
-        latitude[idx_gps]           = lat
-        altitude[idx_gps]           = alt
-        (X[idx_gps], Y[idx_gps],_)  = lla2flat((lat,lng,alt), (latitude[0], longitude[0]), 80, altitude[0]) #-yaw[0]*180/pi+115
-        idx_gps += 1
 
     if topic == '/ecu_pwm':
         t_rc[idx_rc]        = ts 
@@ -182,6 +172,39 @@ for topic, msg, t in bag.read_messages(topics=['/ecu_pwm','/imu/data','/fix','/s
         n_FR[idx_enc]       = msg.FR
         n_BL[idx_enc]       = msg.BL
         n_BR[idx_enc]       = msg.BR
+
+t0 = -1
+gpsinit = False
+for topic, msg, t in bag.read_messages(topics=['/fix']):
+    # initial system time
+    if t0 == -1:
+        t0                  = t.secs + t.nsecs/(10.0**9)
+    ts                  = t.secs + t.nsecs/(10.0**9) - t0
+
+    if topic == '/fix':
+        lng                         = msg.longitude
+        lat                         = msg.latitude
+        alt                         = msg.altitude
+        t_gps[idx_gps]              = ts 
+        longitude[idx_gps]          = lng
+        latitude[idx_gps]           = lat
+        altitude[idx_gps]           = alt
+        # if there is an ecu topic, initialize the GPS at the point when the first command is sent (before the car could not possibly move)
+        if '/ecu' in topics and initafterecu:
+            if not gpsinit:
+                lat0 = lat
+                lng0 = lng
+                # print ts, t_ecu
+                # j = next(j for j,w in enumerate(t_ecu) if w <= ts)
+                # print j
+                # if acc_ecu[j] != 0:
+                if ts >= t_ecu[0]:
+                    gpsinit = True
+            (X[idx_gps], Y[idx_gps],_)  = lla2flat((lat,lng,alt), (lat0, lng0), 80.0, altitude[0])
+        else:
+            (X[idx_gps], Y[idx_gps],_)  = lla2flat((lat,lng,alt), (latitude[0], longitude[0]), 236.5, altitude[0]) #-yaw[0]*180/pi+115
+
+        idx_gps += 1
 
 bag.close()
 
@@ -330,17 +353,17 @@ if '/ecu' in topics:
 #         plt.ylabel('linear acceleration')
 #         plt.grid(axis = 'both')
 
-if '/encoder' in topics:
-    plt.figure(figsize = fig_sz)
-    plt.plot(t_enc,n_FL)
-    plt.hold('on')
-    plt.plot(t_enc,n_FR)
-    plt.plot(t_enc,n_BL)
-    plt.plot(t_enc,n_BR)
-    plt.xlabel('t [sec]')
-    plt.ylabel('encoder counting')
-    plt.grid(axis = 'both')
-    plt.legend(('n_FL','n_FR','n_BL','n_BR'))
+# if '/encoder' in topics:
+#     plt.figure(figsize = fig_sz)
+#     plt.plot(t_enc,n_FL)
+#     plt.hold('on')
+#     plt.plot(t_enc,n_FR)
+#     plt.plot(t_enc,n_BL)
+#     plt.plot(t_enc,n_BR)
+#     plt.xlabel('t [sec]')
+#     plt.ylabel('encoder counting')
+#     plt.grid(axis = 'both')
+#     plt.legend(('n_FL','n_FR','n_BL','n_BR'))
 
 
 plt.show()

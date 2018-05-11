@@ -5,9 +5,9 @@
     <param name="L_a" type="double" value="0.18" />
     <param name="L_b" type="double" value="0.14" />
     <param name="r_tire" type="double" value="0.05" />
+    <param name="psio_gps" type="double" value="80.0" />
+    <param name="sim_mode" type="bool" value="False" />
 
-    <!-- control parameters -->
-    <param name="input_gain" type="double" value="0.3" />
 
     <!-- SIMULATOR -->
     <node pkg="barc" type="vehicle_simulator.py" name="vehicle_simulator" output="screen"/>
@@ -23,13 +23,6 @@
 
         <!-- measurement model type -->
         <param name="est_mode" type="int" value="1" />
-
-        <!-- OLD ekf properties
-        <param name="q_std" type="double" value="0.01" />
-        <param name="psi_std" type="double" value="0.2" />
-        <param name="v_std" type="double" value="0.5" />
-        <param name="gps_std" type="double" value="0.025" />
-        -->
     </node>
 
     <!-- LOW LEVEL CONTROLLER -->
@@ -39,9 +32,6 @@
     <node pkg="barc" type="controller_MPC_traj.jl" name="MPC" output="screen"/>
 
     <!-- Record the experiment data -->
-    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/odroid/simulations/sim_follow_traj -a" />
-
-    <!-- USE ROSBAG PLAY ... TO REPUBLISH THE RECORDED SENSOR DATA -->
-    <!-- <node pkg="rosbag" type="play" name="play_rec_sensor_data" args="~/simulations/sim_sensor_data/SENSORDATA_ROSBAG.bag" /> -->
+    <node pkg="rosbag" type="record" name="rosbag_record" args="-o /home/david/simulations/sim_follow_traj -a" />
 
 </launch>
